@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Frame Editor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <header style="text-align: center; margin-bottom: 20px;">
+        <h1 style="color: #333; margin: 0 0 10px 0;">🖼️ Frames with Fabric.js ClipPath</h1>
+        <p style="color: #666; margin: 0; font-size: 14px;">Demonstration of implementing the frames feature in Fabric.js using ClipPath</p>
+    </header>
+
+    <div class="main-container">
+        <!-- Controls Panel -->
+        <div class="controls-panel">
+
+            <div
+                style="margin-bottom: 20px; padding: 10px; background-color: #f8f9fa; border-radius: 4px; font-size: 12px; color: #666;">
+                <strong>💡 Tip:</strong><br>
+                1. Click on a frame to add it<br>
+                2. Click "Add Image" to insert a photo<br>
+                3. Double-click on the image to edit it
+            </div>
+
+            <h3>Basic Frames</h3>
+            <div class="button-group">
+                <button onclick="addFrame('circle')">🔴 Circle</button>
+                <button onclick="addFrame('rect')">🟥 Rectangle</button>
+                <button onclick="addFrame('ellipse')">🔵 Ellipse</button>
+            </div>
+
+            <h3>Geometric Frames</h3>
+            <div class="button-group">
+                <button onclick="addFrame('triangle')">🔺 Triangle</button>
+                <button onclick="addFrame('hexagon')">⬢ Hexagon</button>
+            </div>
+
+            <h3>Special Frames</h3>
+            <div class="button-group">
+                <button onclick="addFrame('star')">⭐ Star</button>
+                <button onclick="addFrame('heart')">❤️ Heart</button>
+            </div>
+
+            <h3>Image</h3>
+            <div class="button-group">
+                
+                <button class="image-button"
+                    onclick="addImage('https://upload.wikimedia.org/wikipedia/commons/4/42/Science_Fiction_Treffen%2C_Speyer._2019-09-29_14-28-24.jpg')">📷
+                    Add Vertical Image</button>
+                <button class="image-button"
+                    onclick="addImage('https://upload.wikimedia.org/wikipedia/commons/f/f0/Chewbacca_%26_friends.jpg')">📷
+                    Add Horizontal Image</button>
+                <input type="file" id="upload" class="image-input" accept="image/*" onchange="uploadImage(event)">
+            </div>
+
+            
+        </div>
+
+        <!-- Canvas Panel -->
+        <div class="canvas-panel">
+            <canvas id="canvas" width="800" height="600"></canvas>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+
+</html>

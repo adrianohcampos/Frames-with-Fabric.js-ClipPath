@@ -1,0 +1,149 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background-color: #f5f5f5;
+}
+
+.main-container {
+    display: flex;
+    gap: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.controls-panel {
+    flex: 0 0 300px;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    height: fit-content;
+    position: sticky;
+    top: 20px;
+}
+
+.canvas-panel {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+#canvas {
+    border: 2px solid #333;
+    border-radius: 8px;
+    background-color: white;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.controls-panel h3 {
+    margin: 15px 0 10px 0;
+    color: #333;
+    font-size: 16px;
+    border-bottom: 2px solid #eee;
+    padding-bottom: 5px;
+}
+
+.controls-panel h3:first-child {
+    margin-top: 0;
+}
+
+.button-group {
+    margin-bottom: 15px;
+}
+
+button {
+    display: block;
+    width: 100%;
+    margin: 8px 0;
+    padding: 6px 10px;
+    border: none;
+    border-radius: 6px;
+    background-color: #007bff;
+    color: white;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.3s ease;
+    text-align: left;
+}
+
+button:hover {
+    background-color: #0056b3;
+    transform: translateX(2px);
+}
+
+button:active {
+    transform: translateX(2px) translateY(1px);
+}
+
+.image-button {
+    background-color: #28a745;
+}
+
+.image-button:hover {
+    background-color: #218838;
+}
+
+.image-input {
+    display: block;
+    width: calc(100% - 20px);;
+    margin: 8px 0;
+    padding: 6px 10px;
+    border: none;
+    border-radius: 6px;
+    background-color: #28a745;
+    color: white;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.3s ease;
+    text-align: left;
+}
+
+.image-input:hover {
+    background-color: #218838;
+    transform: translateX(2px);
+}
+
+.image-input::-webkit-file-upload-button {
+    display: none;
+}
+
+.image-input::file-selector-button {
+    display: none;
+}
+
+.image-input::before {
+    content: 'Selecionar Imagem';
+    display: block;
+    color: white;
+}
+
+@media (max-width: 1024px) {
+    .main-container {
+        flex-direction: column;
+    }
+
+    .controls-panel {
+        flex: none;
+        position: static;
+    }
+
+    .button-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .button-group button {
+        flex: 1;
+        min-width: calc(50% - 5px);
+        display: inline-block;
+    }
+}
+
+@media (max-width: 600px) {
+    .button-group button {
+        min-width: 100%;
+    }
+}
