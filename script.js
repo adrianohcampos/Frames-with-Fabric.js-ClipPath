@@ -374,6 +374,10 @@ function addImage(imageUrl) {
         // Store frame reference for edit mode toggle
         const shapeRef = activeFrame;
 
+        shapeRef.set({
+            fill: 'transparent',
+        });
+
         // Group frame and image
         const group = new fabric.Group([shapeRef, img], {
             left: activeFrame.left,
@@ -394,14 +398,13 @@ function addImage(imageUrl) {
         let originalGroup = group; // store original group reference
 
         const enterEditMode = function () {
-            let ActiveObject = canvas.getActiveObject();
+            let ActiveObject = canvas.getActiveObject();          
 
             // configure cropping mode as in crop.html
-            canvas.remove(originalGroup);
-
+            canvas.remove(originalGroup);           
             canvas.add(shapeRef);
             canvas.add(img);
-            shapeRef.set({ selectable: false, evented: false });
+            shapeRef.set({ selectable: false, evented: false, fill: 'red' });
             // remove clipPath and configure for cropping
             img.clipPath = null;
             img.isCropping = true;
@@ -605,6 +608,8 @@ function addImage(imageUrl) {
             meta.cropWidth = cropWidth;
             meta.cropHeight = cropHeight;
             img.data = meta;
+
+            shapeRef.set({ fill: 'transparent' });
 
             // reconstruct original group
             originalGroup = new fabric.Group([shapeRef, img], {
