@@ -1,5 +1,27 @@
 const canvas = new fabric.Canvas('canvas');
 let activeFrame = null;
+let isEditMode = false;
+
+
+// Create a temporary canvas to generate the checkerboard pattern
+const tempCanvas = document.createElement('canvas');
+tempCanvas.width = 20; // Pattern size (10x10 per square)
+tempCanvas.height = 20;
+const ctx = tempCanvas.getContext('2d');
+
+// Draw the checkerboard pattern
+ctx.fillStyle = '#fff';
+ctx.fillRect(0, 0, 10, 10);
+ctx.fillRect(10, 10, 10, 10);
+ctx.fillStyle = '#eee';
+ctx.fillRect(10, 0, 10, 10);
+ctx.fillRect(0, 10, 10, 10);
+
+// Create the pattern with fabric.Pattern
+const checkerboardPattern = new fabric.Pattern({
+  source: tempCanvas,
+  repeat: 'repeat'
+});
 
 // Helper function to create clipPath based on frame type
 function createClipPath(frameType, width, height, frame = null) {
@@ -66,13 +88,15 @@ function createClipPath(frameType, width, height, frame = null) {
 
         case 'heart':
             const heartPath = "M12,21.35l-1.45-1.32C5.4,15.36,2,12.28,2,8.5 C2,5.42,4.42,3,7.5,3c1.74,0,3.41,0.81,4.5,2.09C13.09,3.81,14.76,3,16.5,3 C19.58,3,22,5.42,22,8.5c0,3.78-3.4,6.86-8.55,11.54L12,21.35z";
+            const path = new fabric.Path(heartPath); // Create a temporary path to get its natural dimensions
             return new fabric.Path(heartPath, {
                 left: 0,
                 top: 0,
                 originX: 'center',
                 originY: 'center',
-                scaleX: width / 200,
-                scaleY: height / 200
+                // Scale the path to fit the target dimensions (width, height)
+                scaleX: width / path.width,
+                scaleY: height / path.height
             });
 
         case 'ellipse':
@@ -99,35 +123,10 @@ function createClipPath(frameType, width, height, frame = null) {
 
 // Helper function to get frame dimensions
 function getFrameDimensions(frame) {
-    switch (frame.type) {
-        case 'circle':
-            return { width: frame.radius * 2, height: frame.radius * 2 };
-        case 'triangle':
-            return { width: frame.width, height: frame.height };
-        case 'polygon': // hexagon or star
-            // For star, use dimensions based on outer radius with adjustment
-            if (frame.metadata && frame.metadata.frameType === 'star') {
-                // Use star's outer radius (80px) with scale factor for better coverage
-                const outerRadius = 80;
-                const scaleFactor = 1.15; // Increase 15% for better star coverage
-                return { width: outerRadius * 2 * scaleFactor, height: outerRadius * 2 * scaleFactor };
-            } else if (frame.metadata && frame.metadata.frameType === 'hexagon') {
-                // For hexagon, use the radius defined in creation (80px)
-                const hexRadius = 80;
-                return { width: hexRadius * 2, height: hexRadius * 2 };
-            } else {
-                // Fallback for other polygons
-                const bounds = frame.getBoundingRect();
-                return { width: bounds.width, height: bounds.height };
-            }
-        case 'path': // heart
-            const pathBounds = frame.getBoundingRect();
-            return { width: pathBounds.width, height: pathBounds.height };
-        case 'ellipse':
-            return { width: frame.rx * 2, height: frame.ry * 2 };
-        default: // rect
-            return { width: frame.width, height: frame.height };
-    }
+    // getBoundingRect considers the object's scale and angle, providing its actual dimensions on the canvas.
+    // This is more robust than calculating based on base width/height and scale factors.
+    const bounds = frame.getBoundingRect();
+    return { width: bounds.width, height: bounds.height };
 }
 
 function addFrame(type) {
@@ -307,7 +306,12 @@ function addImage(imageUrl) {
         return;
     }
 
-    fabric.Image.fromURL(imageUrl, function (img) {        
+    fabric.Image.fromURL(imageUrl, function (img) {
+        
+        let activeFrameAngle = activeFrame.angle || 0;
+        activeFrame.set({ angle: 0 });
+
+        canvas.renderAll();
 
         img.set({
             left: activeFrame.left,
@@ -318,7 +322,6 @@ function addImage(imageUrl) {
             height: img.height,
             scaleX: 1,
             scaleY: 1,
-            angle: activeFrame.angle || 0,
         });
 
         // Uniform scale (cover) and clipPath in non-scaled image coordinates
@@ -328,6 +331,7 @@ function addImage(imageUrl) {
 
         const scale = Math.max(targetWidth / img.width, targetHeight / img.height);
         img.set({ scaleX: scale, scaleY: scale });
+
         // Store natural dimensions for later editing
         const naturalWidth = img.width;
         const naturalHeight = img.height;
@@ -344,6 +348,8 @@ function addImage(imageUrl) {
             height: cropHeight
         });
 
+        canvas.renderAll();
+
         // Create clipPath based on frame type
         img.clipPath = createClipPath(
             activeFrame.metadata.frameType,
@@ -355,7 +361,7 @@ function addImage(imageUrl) {
         canvas.renderAll();
 
         // Ensure image remains selectable
-        img.set({ selectable: true });
+        img.set({ selectable: true});
         // Store metadata for editing (zoom keeping frame fixed)
         img.data = {
             targetWidth: targetWidth,
@@ -370,6 +376,7 @@ function addImage(imageUrl) {
         };
 
         activeFrame.strokeWidth = 0;
+        // activeFrame.set({ angle: activeFrameAngle });
 
         // Store frame reference for edit mode toggle
         const shapeRef = activeFrame;
@@ -377,13 +384,14 @@ function addImage(imageUrl) {
         shapeRef.set({
             fill: 'transparent',
         });
-
+        
         // Group frame and image
         const group = new fabric.Group([shapeRef, img], {
             left: activeFrame.left,
             top: activeFrame.top,
             originX: 'center',
             originY: 'center',
+            angle: activeFrameAngle || 0,    
         });
         group.data = { shapeRef: shapeRef };
 
@@ -392,30 +400,52 @@ function addImage(imageUrl) {
 
         canvas.setActiveObject(group);
         activeFrame = null;
-        canvas.renderAll();       
-        
+        canvas.renderAll();
+
 
         let originalGroup = group; // store original group reference
 
         const enterEditMode = function () {
-            let ActiveObject = canvas.getActiveObject();          
+            isEditMode = true;
+            let ActiveObject = canvas.getActiveObject();
 
             // configure cropping mode as in crop.html
-            canvas.remove(originalGroup);           
+            canvas.remove(originalGroup);
+            const shapeRef = ActiveObject._objects[0]; // Assumindo que shapeRef é o _objects[0]; defina explicitamente se não for
+            const imgCurrent = ActiveObject._objects[1];
+
+            const groupScaleX = ActiveObject.scaleX;
+            const groupScaleY = ActiveObject.scaleY;
+            const groupAngle = ActiveObject.angle || 0;
+            // Adiciona um retângulo azul do tamanho do canvas
+            const checkerboardRect = new fabric.Rect({
+                left: 0,
+                top: 0,
+                width: canvas.getWidth(),
+                height: canvas.getHeight(),
+                fill: checkerboardPattern,
+                selectable: false,
+                evented: false,
+                originX: 'left',
+                originY: 'top',
+                id: 'checkerboardRect'
+            });
+            
             canvas.add(shapeRef);
-            canvas.add(img);
+            canvas.add(imgCurrent);
+            
             shapeRef.set({ selectable: false, evented: false, fill: 'red' });
             // remove clipPath and configure for cropping
-            img.clipPath = null;
-            img.isCropping = true;
-            img.set({
+            imgCurrent.clipPath = null;
+            imgCurrent.isCropping = true;
+            imgCurrent.set({
                 lockMovementX: true,
                 lockMovementY: true,
                 hasControls: true,
                 selectable: true,
             });
 
-            img.setControlsVisibility({
+            imgCurrent.setControlsVisibility({
                 mtr: false,
                 mt: false,
                 mb: false,
@@ -426,46 +456,48 @@ function addImage(imageUrl) {
                 tl: false,
                 tr: false,
             });
-
-            shapeRef.set({ left: 0, top: 0 });
-            img.set({ left: 0, top: 0 });
-
-            // create backdrop exactly as in crop.html
-            fabric.Image.fromURL(img._originalElement.currentSrc, function (backdrop) {
-                backdrop.imageId = img.id;
-                img.backdropId = 'backdrop-' + Date.now();
-
-                // calculate correct position considering img has center origin                             
-                let imgTLx = ActiveObject.left - (img.width * img.scaleX) / 2 * 1;
-                let imgTLy = ActiveObject.top - (img.height * img.scaleY) / 2 * 1;
-
+            
+            // create backdrop
+            fabric.Image.fromURL(imgCurrent._originalElement.currentSrc, function (backdrop) {
+                backdrop.imageId = imgCurrent.id;
+                imgCurrent.backdropId = 'backdrop-' + Date.now();
+                
+                // Restore the original position calculation, which user confirmed was correct,
+                // but apply the correct angle from the now-correctly-rotated main image.
+                let imgTLx = ActiveObject.left - (imgCurrent.width * imgCurrent.scaleX * groupScaleX) / 2;
+                let imgTLy = ActiveObject.top - (imgCurrent.height * imgCurrent.scaleY * groupScaleY) / 2;
+                
                 backdrop.set({
-                    id: img.backdropId,
-                    cropX: 0,
-                    cropY: 0,
+                    id: imgCurrent.backdropId,
                     originX: 'left',
                     originY: 'top',
-                    left: (imgTLx - (img.cropX || 0) * img.scaleX),
-                    top: (imgTLy - (img.cropY || 0) * img.scaleY),
-                    width: img._element.naturalWidth,
-                    height: img._element.naturalHeight,
-                    scaleX: img.scaleX,
-                    scaleY: img.scaleY,
-                    opacity: 0.25,
-                    angle: img.angle || 0,
+                    left: (imgTLx - (imgCurrent.cropX || 0) * imgCurrent.scaleX * groupScaleX),
+                    top: (imgTLy - (imgCurrent.cropY || 0) * imgCurrent.scaleY * groupScaleY),
+                    angle: imgCurrent.angle, // Use the main image's angle as the source of truth
+                    width: imgCurrent._element.naturalWidth,
+                    height: imgCurrent._element.naturalHeight,
+                    scaleX: imgCurrent.scaleX * groupScaleX,
+                    scaleY: imgCurrent.scaleY * groupScaleY,
+                    angle: groupAngle,
+                    opacity: 0.30,
+                    selectable: false,
+                    evented: false,
                     lockMovementX: true,
                     lockMovementY: true,
                     controls: false,
-                    selectable: false,
-                    evented: false
                 });
+
                 backdrop.setControlsVisibility({
                     mtr: false, mt: false, mb: false, ml: false, mr: false,
                     bl: false, br: false, tl: false, tr: false,
                 });
                 canvas.add(backdrop);
-                canvas.sendToBack(backdrop);
-            });
+                // backdrop.setPositionByOrigin(ActiveObject.getCenterPoint(), 'center', 'center');
+                // backdrop.setCoords();
+                canvas.renderAll();
+                canvas.sendBackwards(backdrop);
+                canvas.sendBackwards(checkerboardRect);
+            }, { crossOrigin: 'anonymous' });
 
             // handlers same as crop.html
             const handleScaling = function (e) {
@@ -493,7 +525,7 @@ function addImage(imageUrl) {
                         if (backdrop.left + backdrop.width < image.left + image.width) backdrop.left = image.left + image.width - backdrop.width;
                     }
                 }
-                canvas.requestRenderAll();
+                canvas.renderAll();
             };
 
             const handleMouseDown = function (e) {
@@ -514,19 +546,18 @@ function addImage(imageUrl) {
                 const backdrop = canvas.getObjects().find(obj => obj.id === image.backdropId);
                 if (image.isMouseDown && backdrop && !image.isScaling) {
 
-                    const imageLeft = ActiveObject.left - (image.width * image.scaleX) //image.left
-                    const imageTop = ActiveObject.top - (image.height * image.scaleY) //image.top
-
                     const diffX = e.pointer.x - image.mouseDownX;
                     const diffY = e.pointer.y - image.mouseDownY;
+                    
                     // backdrop movement
                     backdrop.left = backdrop._left + diffX;
                     backdrop.top = backdrop._top + diffY;
+                    
                     // backdrop limits (use image top-left coordinates)
-                    const imageTLx = imageLeft - (image.width * image.scaleX) / 2 * -1;
-                    const imageTLy = imageTop - (image.height * image.scaleY) / 2 * -1;
-                    const imageW = image.width * image.scaleX;
-                    const imageH = image.height * image.scaleY;
+                    const imageTLx = ActiveObject.left - (image.width * image.scaleX * groupScaleX) / 2;
+                    const imageTLy = ActiveObject.top - (image.height * image.scaleY * groupScaleY) / 2;
+                    const imageW = image.width * image.scaleX * groupScaleX;
+                    const imageH = image.height * image.scaleY * groupScaleY;
                     const backdropW = backdrop.width * backdrop.scaleX;
                     const backdropH = backdrop.height * backdrop.scaleY;
 
@@ -535,10 +566,11 @@ function addImage(imageUrl) {
                     if (backdrop.left + backdropW < imageTLx + imageW) backdrop.left = imageTLx + imageW - backdropW;
                     if (backdrop.top + backdropH < imageTLy + imageH) backdrop.top = imageTLy + imageH - backdropH;
 
+                    
                     // crop changes (consider image has center origin)
-                    image.cropX = (imageTLx - backdrop.left) / image.scaleX;
-                    image.cropY = (imageTLy - backdrop.top) / image.scaleY;
-                    canvas.requestRenderAll();
+                    image.cropX = (imageTLx - backdrop.left) / (image.scaleX * groupScaleX);
+                    image.cropY = (imageTLy - backdrop.top) / (image.scaleY * groupScaleY);
+                    canvas.renderAll();
                 }
             };
 
@@ -553,90 +585,107 @@ function addImage(imageUrl) {
                 }
             };
 
-            img.on('scaling', handleScaling);
-            img.on('mousedown', handleMouseDown);
-            img.on('mousemove', handleMouseMove);
-            img.on('mouseup', handleMouseUp);
+            imgCurrent.on('scaling', handleScaling);
+            imgCurrent.on('mousedown', handleMouseDown);
+            imgCurrent.on('mousemove', handleMouseMove);
+            imgCurrent.on('mouseup', handleMouseUp);  
 
-            canvas.requestRenderAll();
+            canvas.renderAll();
         };
-
         const exitEditMode = function () {
+
+            if(!isEditMode) return;
+
+            isEditMode = false;
+            
+            let ActiveObject = canvas.getActiveObject();
+            
+            let imgCurrent = ActiveObject;
+
             // remove backdrop and apply final crop
-            const backdrop = canvas.getObjects().find(obj => obj.id === img.backdropId);
+            const backdrop = canvas.getObjects().find(obj => obj.id === imgCurrent.backdropId);
             if (backdrop) canvas.remove(backdrop);
+            const checkerboardRect = canvas.getObjects().find(obj => obj.id === 'checkerboardRect');
+            if (checkerboardRect) canvas.remove(checkerboardRect);            
 
             // remove all cropping event listeners
-            img.off('scaling');
-            img.off('mousedown');
-            img.off('mousemove');
-            img.off('mouseup');
-            img.off('deselected');
+            imgCurrent.off('scaling');
+            imgCurrent.off('mousedown');
+            imgCurrent.off('mousemove');
+            imgCurrent.off('mouseup');
+            imgCurrent.off('deselected');
 
             // disable crop
-            img.isCropping = false;
-            img.lockMovementX = false;
-            img.lockMovementY = false;
-            img.setControlsVisibility({
+            imgCurrent.isCropping = false;
+            imgCurrent.lockMovementX = false;
+            imgCurrent.lockMovementY = false;
+            imgCurrent.setControlsVisibility({
                 mtr: true, mt: true, mb: true, ml: true, mr: true,
                 bl: true, br: true, tl: true, tr: true,
             });
 
             // apply final crop same as crop.html
-            const meta = img.data || {};
+            const meta = imgCurrent.data || {};
             const targetW = meta.targetWidth;
             const targetH = meta.targetHeight;
-            const cropWidth = targetW / img.scaleX;
-            const cropHeight = targetH / img.scaleY;
+            // tamanho de recorte corrigido pela escala do grupo
+            const cropWidth = targetW / (imgCurrent.scaleX);
+            const cropHeight = targetH / (imgCurrent.scaleY);
+
 
             // center in frame
-            img.set({
+            imgCurrent.set({
                 left: shapeRef.left,
                 top: shapeRef.top,
                 originX: 'center',
                 originY: 'center',
-                width: cropWidth,
-                height: cropHeight
             });
 
+
             // create clipPath of frame size
-            img.clipPath = createClipPath(meta.frameType, cropWidth, cropHeight);
+            imgCurrent.clipPath = createClipPath(meta.frameType, cropWidth, cropHeight);
 
             // update metadata
-            meta.cropX = img.cropX;
-            meta.cropY = img.cropY;
-            meta.cropWidth = cropWidth;
-            meta.cropHeight = cropHeight;
-            img.data = meta;
+            meta.cropX = imgCurrent.cropX;
+            meta.cropY = imgCurrent.cropY;
+            meta.cropWidth = cropWidth * imgCurrent.scaleX;
+            meta.cropHeight = cropHeight * imgCurrent.scaleY;
+            imgCurrent.data = meta;
 
             shapeRef.set({ fill: 'transparent' });
-
+            canvas.renderAll();
             // reconstruct original group
-            originalGroup = new fabric.Group([shapeRef, img], {
+            originalGroup = new fabric.Group([shapeRef, imgCurrent], {
                 left: originalGroup.left,
                 top: originalGroup.top,
+                scaleX: originalGroup.scaleX,
+                scaleY: originalGroup.scaleY,
+                angle: originalGroup.angle,
                 originX: 'center',
                 originY: 'center'
             });
+
             originalGroup.data = { shapeRef: shapeRef };
             canvas.add(originalGroup);
             canvas.setActiveObject(originalGroup);
-            canvas.requestRenderAll();
+            canvas.renderAll();
             // reattach handler to original group
             originalGroup.on('mousedblclick', enterEditMode);
         };
 
         // Double click to enter; double click on image to exit
         group.on('mousedblclick', enterEditMode);
-        img.on('mousedblclick', exitEditMode);
+        img.on('mousedblclick', exitEditMode); 
 
         // Optional: Deselect to avoid interference
-        group.on('deselected', function () {
+        /* group.on('deselected', function () {
             canvas.discardActiveObject(); // Remove active selection
             canvas.renderAll();
-        });
+        }); */
+
 
     }, { crossOrigin: 'anonymous' });
+
 }
 
 canvas.on('selection:created', function (e) {
