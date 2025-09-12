@@ -1,0 +1,139 @@
+---
+globs: *.js
+description: Melhores práticas específicas para Fabric.js
+---
+
+# Melhores Práticas Fabric.js
+
+## Configuração do Canvas
+- **Sempre inicialize o canvas** com `new fabric.Canvas('canvas-id')`
+- **Configure propriedades globais** do canvas no início
+- **Use `renderAll()`** após modificações no canvas
+
+```javascript
+// ✅ Bom - inicialização limpa
+const canvas = new fabric.Canvas('canvas', {
+    width: 800,
+    height: 600,
+    backgroundColor: 'white'
+});
+```
+
+## Criação de Objetos
+- **Use `originX: 'center'` e `originY: 'center'`** para melhor manipulação
+- **Sempre defina metadata** para objetos customizados
+- **Configure propriedades em uma única chamada** `set()`
+
+```javascript
+// ✅ Bom - configuração completa do objeto
+const frame = new fabric.Circle({
+    radius: 100,
+    left: 200,
+    top: 200,
+    fill: 'red',
+    opacity: 0.5,
+    originX: 'center',
+    originY: 'center',
+    metadata: {
+        frameType: 'circle'
+    }
+});
+```
+
+## Manipulação de Imagens
+- **Use `fabric.Image.fromURL()`** para carregar imagens
+- **Configure crossOrigin** quando necessário: `{ crossOrigin: 'anonymous' }`
+- **Armazene dimensões originais** em metadata para edição
+- **Use clipPath** para mascaramento ao invés de cropping visual
+
+```javascript
+// ✅ Bom - carregamento de imagem com configuração completa
+fabric.Image.fromURL(imageUrl, function(img) {
+    img.set({
+        left: frame.left,
+        top: frame.top,
+        originX: 'center',
+        originY: 'center',
+        scaleX: scale,
+        scaleY: scale
+    });
+    
+    // Armazenar dados para edição
+    img.data = {
+        targetWidth: targetWidth,
+        targetHeight: targetHeight,
+        naturalWidth: img.width,
+        naturalHeight: img.height
+    };
+    
+    canvas.add(img);
+    canvas.renderAll();
+}, { crossOrigin: 'anonymous' });
+```
+
+## ClipPath e Máscaras
+- **Crie clipPaths** com origem centralizada
+- **Use as mesmas dimensões** entre frame e clipPath
+- **Reutilize funções** para criação de clipPaths
+
+```javascript
+// ✅ Bom - função reutilizável para clipPath
+function createClipPath(frameType, width, height) {
+    switch (frameType) {
+        case 'circle':
+            return new fabric.Circle({
+                radius: Math.min(width, height) / 2,
+                left: 0,
+                top: 0,
+                originX: 'center',
+                originY: 'center'
+            });
+        // ... outros tipos
+    }
+}
+```
+
+## Grupos e Seleção
+- **Use `fabric.Group`** para agrupar objetos relacionados
+- **Mantenha referências** dos objetos no grupo via `data`
+- **Configure eventos** apropriadamente para grupos
+
+```javascript
+// ✅ Bom - criação de grupo com dados
+const group = new fabric.Group([frame, image], {
+    left: frame.left,
+    top: frame.top,
+    originX: 'center',
+    originY: 'center'
+});
+group.data = { frameRef: frame, imageRef: image };
+```
+
+## Eventos e Interatividade
+- **Use eventos específicos**: `mousedblclick`, `modified`, `selection:created`
+- **Remova event listeners** quando não precisar mais
+- **Use flags de controle** para modos de edição (`isCropping`, `isScaling`)
+
+```javascript
+// ✅ Bom - controle de eventos
+object.on('mousedblclick', enterEditMode);
+
+// Limpeza de eventos
+function cleanup() {
+    object.off('mousedblclick');
+    object.off('scaling');
+    object.off('moving');
+}
+```
+
+## Performance
+- **Use `requestRenderAll()`** ao invés de `renderAll()` em animações
+- **Desabilite objetos** desnecessários: `selectable: false`, `evented: false`
+- **Configure controles** apenas quando necessário
+
+## Erros Comuns a Evitar
+- ❌ Não usar `renderAll()` após modificações
+- ❌ Não configurar `originX/originY` consistentemente  
+- ❌ Não limpar event listeners
+- ❌ Não armazenar metadata para edição posterior
+- ❌ Usar propriedades de escala inconsistentes entre objetos relacionados

@@ -1,0 +1,247 @@
+---
+globs: *.js
+description: Práticas de debugging e performance para JavaScript e Fabric.js
+---
+
+# Debugging e Performance
+
+## Logging e Debug
+```javascript
+// ✅ Bom - logging estruturado com contexto
+console.log('[FABRIC DEBUG]', {
+    action: 'addFrame',
+    frameType: type,
+    position: { left: frame.left, top: frame.top },
+    dimensions: { width: frame.width, height: frame.height }
+});
+
+// ✅ Bom - logging de erros com stack trace
+try {
+    frame = new fabric.Path(heartPath, config);
+} catch (error) {
+    console.error('Error creating heart frame:', error);
+    console.error('Config used:', config);
+    // Fallback implementado
+}
+
+// ✅ Bom - logging condicional para desenvolvimento
+const DEBUG = true; // ou process.env.NODE_ENV === 'development'
+if (DEBUG) {
+    console.log('Edit mode entered:', { activeObject, groupData });
+}
+```
+
+## Performance com Fabric.js
+
+### Canvas Rendering
+```javascript
+// ✅ Bom - usar requestRenderAll para animações
+function animateObject(object, properties) {
+    object.animate(properties, {
+        duration: 300,
+        onChange: () => canvas.requestRenderAll(), // Mais eficiente
+        onComplete: () => canvas.renderAll()
+    });
+}
+
+// ✅ Bom - batch de operações antes de renderizar
+function addMultipleObjects(objects) {
+    objects.forEach(obj => canvas.add(obj));
+    canvas.renderAll(); // Uma única renderização no final
+}
+
+// ❌ Evite - renderizar após cada operação
+objects.forEach(obj => {
+    canvas.add(obj);
+    canvas.renderAll(); // Ineficiente
+});
+```
+
+### Manipulação de Objetos
+```javascript
+// ✅ Bom - desabilitar eventos desnecessários
+const backdrop = new fabric.Image(element, {
+    selectable: false,
+    evented: false,
+    hoverCursor: 'default',
+    moveCursor: 'default'
+});
+
+// ✅ Bom - controlar controles de objeto
+image.setControlsVisibility({
+    mtr: false, // rotation
+    mt: false, mb: false, ml: false, mr: false,
+    bl: false, br: false, tl: false, tr: false
+});
+
+// ✅ Bom - usar cache para objetos complexos
+complexObject.set({
+    objectCaching: true,
+    statefullCache: true
+});
+```
+
+## Memory Management
+
+### Event Listeners
+```javascript
+// ✅ Bom - sempre remover listeners quando não precisar
+function cleanup() {
+    img.off('scaling');
+    img.off('mousedown');
+    img.off('mousemove');
+    img.off('mouseup');
+    img.off('deselected');
+}
+
+// ✅ Bom - usar named functions para fácil remoção
+function handleImageScaling(e) {
+    // handler implementation
+}
+
+img.on('scaling', handleImageScaling);
+// Depois remover especificamente
+img.off('scaling', handleImageScaling);
+```
+
+### Limpeza de Objetos
+```javascript
+// ✅ Bom - remover objetos não utilizados
+function removeBackdrop(imageId) {
+    const backdrop = canvas.getObjects().find(obj => obj.id === imageId);
+    if (backdrop) {
+        canvas.remove(backdrop);
+        backdrop.dispose?.(); // Se disponível
+    }
+}
+
+// ✅ Bom - limpar referências
+function resetEditMode() {
+    activeFrame = null;
+    originalGroup = null;
+    // Outras referências...
+}
+```
+
+## Debugging de Transformações
+```javascript
+// ✅ Bom - helper para debug de transformações
+function debugObjectTransforms(obj, label = 'Object') {
+    console.log(`[${label} TRANSFORMS]`, {
+        position: { left: obj.left, top: obj.top },
+        dimensions: { width: obj.width, height: obj.height },
+        scale: { scaleX: obj.scaleX, scaleY: obj.scaleY },
+        rotation: obj.angle,
+        origin: { originX: obj.originX, originY: obj.originY },
+        boundingRect: obj.getBoundingRect()
+    });
+}
+
+// Uso em eventos
+img.on('modified', function() {
+    debugObjectTransforms(this, 'Image');
+});
+```
+
+## Performance Monitoring
+```javascript
+// ✅ Bom - medir performance de operações críticas
+function measurePerformance(label, fn) {
+    const start = performance.now();
+    const result = fn();
+    const end = performance.now();
+    console.log(`[PERFORMANCE] ${label}: ${(end - start).toFixed(2)}ms`);
+    return result;
+}
+
+// Uso
+const clipPath = measurePerformance('Create ClipPath', () => {
+    return createClipPath(frameType, width, height);
+});
+```
+
+## Error Boundaries
+```javascript
+// ✅ Bom - wrapper para operações que podem falhar
+function safeCanvasOperation(operation, errorMessage = 'Canvas operation failed') {
+    try {
+        return operation();
+    } catch (error) {
+        console.error(errorMessage, error);
+        
+        // Opcional: reportar erro para serviço de monitoramento
+        if (window.errorReporting) {
+            window.errorReporting.captureException(error);
+        }
+        
+        return null;
+    }
+}
+
+// Uso
+const result = safeCanvasOperation(() => {
+    canvas.add(complexObject);
+    canvas.renderAll();
+    return true;
+}, 'Failed to add object to canvas');
+```
+
+## Debugging de Estados
+```javascript
+// ✅ Bom - snapshot do estado atual
+function debugCanvasState() {
+    const objects = canvas.getObjects();
+    console.log('[CANVAS STATE]', {
+        objectCount: objects.length,
+        activeObject: canvas.getActiveObject()?.type,
+        objects: objects.map(obj => ({
+            type: obj.type,
+            id: obj.id,
+            visible: obj.visible,
+            selectable: obj.selectable
+        }))
+    });
+}
+
+// ✅ Bom - debug de grupos
+function debugGroup(group) {
+    console.log('[GROUP DEBUG]', {
+        type: group.type,
+        objects: group._objects?.map(obj => obj.type),
+        position: { left: group.left, top: group.top },
+        scale: { scaleX: group.scaleX, scaleY: group.scaleY },
+        data: group.data
+    });
+}
+```
+
+## Validação de Dados
+```javascript
+// ✅ Bom - validação robusta
+function validateImageData(img) {
+    const required = ['naturalWidth', 'naturalHeight', 'targetWidth', 'targetHeight'];
+    const missing = required.filter(prop => !img.data?.[prop]);
+    
+    if (missing.length > 0) {
+        console.warn('Missing image data properties:', missing);
+        return false;
+    }
+    
+    return true;
+}
+
+// ✅ Bom - validação de frame
+function validateFrame(frame) {
+    if (!frame) {
+        console.error('Frame is null or undefined');
+        return false;
+    }
+    
+    if (!frame.metadata?.frameType) {
+        console.warn('Frame missing frameType metadata');
+        return false;
+    }
+    
+    return true;
+}
+```

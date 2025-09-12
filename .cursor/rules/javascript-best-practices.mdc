@@ -1,0 +1,64 @@
+---
+alwaysApply: true
+description: Melhores práticas gerais para JavaScript no projeto
+---
+
+# Melhores Práticas JavaScript
+
+## Estrutura de Código
+- **Sempre use `const` por padrão**, `let` apenas quando necessário
+- **Evite `var`** - use apenas `let` ou `const`
+- **Use nomes descritivos** para variáveis e funções (ex: `createClipPath`, `getFrameDimensions`)
+- **Prefira funções nomeadas** ao invés de funções anônimas para melhor debugging
+
+## Organização de Funções
+- **Agrupe funções relacionadas** juntas (ex: todas as funções de frame, todas as de imagem)
+- **Use comentários descritivos** para funções complexas
+- **Mantenha funções pequenas** e com responsabilidade única
+- **Use early returns** para reduzir aninhamento de código
+
+## Tratamento de Erros
+- **Sempre use try-catch** para operações que podem falhar
+- **Forneça fallbacks** quando possível (como no código do coração)
+- **Use console.error** para logging de erros em desenvolvimento
+
+## Exemplo de estrutura preferida:
+```javascript
+// ✅ Bom - função bem nomeada e documentada
+function createClipPath(frameType, width, height, frame = null) {
+    // Early return para casos simples
+    if (!frameType) return null;
+    
+    switch (frameType) {
+        case 'circle':
+            return new fabric.Circle({
+                radius: Math.min(width, height) / 2,
+                left: 0,
+                top: 0,
+                originX: 'center',
+                originY: 'center'
+            });
+        // ... outros casos
+    }
+}
+
+// ❌ Evite - função sem nome clara e sem tratamento de erro
+const fn = (t, w, h) => {
+    // código sem validação
+};
+```
+
+## Constantes e Configurações
+- **Defina constantes** no topo do arquivo para valores fixos
+- **Use UPPER_CASE** para constantes verdadeiras
+- **Agrupe configurações** relacionadas em objetos
+
+```javascript
+// ✅ Bom
+const DEFAULT_FRAME_SIZE = 100;
+const FRAME_TYPES = {
+    CIRCLE: 'circle',
+    RECTANGLE: 'rect',
+    TRIANGLE: 'triangle'
+};
+```

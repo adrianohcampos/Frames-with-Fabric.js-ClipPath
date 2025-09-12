@@ -1,0 +1,207 @@
+---
+globs: *.js
+description: Organização e estrutura de código JavaScript
+---
+
+# Organização de Código
+
+## Estrutura de Arquivo JavaScript
+```javascript
+// 1. DECLARAÇÕES GLOBAIS no topo
+const canvas = new fabric.Canvas('canvas');
+let activeFrame = null;
+
+// 2. CONSTANTES E CONFIGURAÇÕES
+const DEFAULT_FRAME_CONFIG = {
+    left: 200,
+    top: 200,
+    opacity: 0.5,
+    originX: 'center',
+    originY: 'center'
+};
+
+// 3. FUNÇÕES UTILITÁRIAS (helpers)
+function createClipPath(frameType, width, height, frame = null) {
+    // Implementação...
+}
+
+function getFrameDimensions(frame) {
+    // Implementação...
+}
+
+// 4. FUNÇÕES PRINCIPAIS
+function addFrame(type) {
+    // Implementação...
+}
+
+function addImage(imageUrl) {
+    // Implementação...
+}
+
+// 5. EVENT LISTENERS no final
+canvas.on('selection:created', function(e) {
+    // Implementação...
+});
+```
+
+## Agrupamento de Funções por Responsabilidade
+
+### 📐 Funções de Frame
+```javascript
+// Todas as funções relacionadas a frames juntas
+function addFrame(type) { /* */ }
+function removeFrame(frame) { /* */ }
+function updateFrame(frame, properties) { /* */ }
+```
+
+### 🖼️ Funções de Imagem
+```javascript
+// Todas as funções relacionadas a imagens juntas
+function addImage(imageUrl) { /* */ }
+function uploadImage(event) { /* */ }
+function cropImage(image, bounds) { /* */ }
+```
+
+### ✂️ Funções de ClipPath
+```javascript
+// Todas as funções relacionadas a clipPath juntas
+function createClipPath(frameType, width, height) { /* */ }
+function updateClipPath(object, newDimensions) { /* */ }
+```
+
+### 🎯 Funções de Edição
+```javascript
+// Todas as funções relacionadas ao modo de edição juntas
+function enterEditMode() { /* */ }
+function exitEditMode() { /* */ }
+function setupCroppingHandlers(image) { /* */ }
+```
+
+## Convenções de Comentários
+```javascript
+// ✅ Bom - comentário descritivo para funções complexas
+/**
+ * Cria um clipPath baseado no tipo de frame
+ * @param {string} frameType - Tipo do frame (circle, rect, etc.)
+ * @param {number} width - Largura do clipPath
+ * @param {number} height - Altura do clipPath
+ * @param {fabric.Object} frame - Referência do frame (opcional)
+ * @returns {fabric.Object} - Objeto clipPath configurado
+ */
+function createClipPath(frameType, width, height, frame = null) {
+    // Implementação...
+}
+
+// ✅ Bom - comentário para seções de código
+// Configure cropping mode as in crop.html
+canvas.remove(originalGroup);
+canvas.add(shapeRef);
+canvas.add(img);
+
+// ✅ Bom - comentário explicativo para cálculos complexos
+// Uniform scale (cover) and clipPath in non-scaled image coordinates
+const scale = Math.max(targetWidth / img.width, targetHeight / img.height);
+```
+
+## Separação de Responsabilidades
+
+### ✅ Uma função, uma responsabilidade
+```javascript
+// ✅ Bom - função específica
+function getFrameDimensions(frame) {
+    switch (frame.type) {
+        case 'circle':
+            return { width: frame.radius * 2, height: frame.radius * 2 };
+        // ... outros casos
+    }
+}
+
+// ✅ Bom - função específica
+function validateActiveFrame() {
+    if (!activeFrame) {
+        alert('Please select or add a frame first!');
+        return false;
+    }
+    return true;
+}
+```
+
+### ❌ Evite funções muito grandes
+```javascript
+// ❌ Ruim - função fazendo muitas coisas
+function addImageToFrame(imageUrl, frameType, position, scale) {
+    // 50+ linhas fazendo múltiplas responsabilidades
+    // Melhor dividir em funções menores
+}
+```
+
+## Padrão de Inicialização
+```javascript
+// ✅ Bom - função de inicialização limpa
+function initializeCanvas() {
+    const canvas = new fabric.Canvas('canvas', {
+        width: 800,
+        height: 600
+    });
+    
+    setupCanvasEvents(canvas);
+    setupKeyboardShortcuts();
+    return canvas;
+}
+
+function setupCanvasEvents(canvas) {
+    canvas.on('selection:created', handleSelectionCreated);
+    canvas.on('selection:cleared', handleSelectionCleared);
+}
+```
+
+## Manejo de Estados
+```javascript
+// ✅ Bom - objeto para gerenciar estado
+const appState = {
+    activeFrame: null,
+    editMode: false,
+    selectedTool: 'select'
+};
+
+function updateAppState(newState) {
+    Object.assign(appState, newState);
+    renderUI();
+}
+```
+
+## Exemplo de Estrutura Ideal
+```javascript
+// === GLOBALS ===
+const canvas = new fabric.Canvas('canvas');
+let activeFrame = null;
+
+// === CONSTANTS ===
+const FRAME_DEFAULTS = { /* */ };
+const SUPPORTED_FRAMES = ['circle', 'rect', 'triangle'];
+
+// === UTILITIES ===
+function createClipPath() { /* */ }
+function getFrameDimensions() { /* */ }
+function validateFrame() { /* */ }
+
+// === FRAME OPERATIONS ===
+function addFrame() { /* */ }
+function removeFrame() { /* */ }
+
+// === IMAGE OPERATIONS ===
+function addImage() { /* */ }
+function uploadImage() { /* */ }
+
+// === EDIT MODE ===
+function enterEditMode() { /* */ }
+function exitEditMode() { /* */ }
+
+// === EVENT HANDLERS ===
+function handleSelectionCreated() { /* */ }
+function handleSelectionCleared() { /* */ }
+
+// === INITIALIZATION ===
+canvas.on('selection:created', handleSelectionCreated);
+canvas.on('selection:cleared', handleSelectionCleared);
+```

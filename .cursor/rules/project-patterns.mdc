@@ -1,0 +1,162 @@
+---
+globs: *.js,*.html
+description: Padrões específicos do projeto Frame Editor
+---
+
+# Padrões do Projeto Frame Editor
+
+## Arquitetura do Projeto
+O projeto segue uma estrutura específica para editor de frames:
+- [index.html](mdc:index.html) - Interface do usuário e controles
+- [script.js](mdc:script.js) ou [script_kaua.js](mdc:script_kaua.js) - Lógica principal
+- [styles.css](mdc:styles.css) - Estilos da interface
+
+## Padrão de Frames
+- **Todos os frames** devem ter `metadata.frameType` definido
+- **Frames suportados**: circle, rect, triangle, hexagon, star, heart, ellipse
+- **Posicionamento padrão**: `left: 200, top: 200` para novos frames
+
+```javascript
+// ✅ Padrão do projeto para criação de frames
+function addFrame(type) {
+    const frame = new fabric.Circle({
+        radius: 100,
+        left: 200,
+        top: 200,
+        fill: 'red',
+        opacity: 0.5,
+        originX: 'center',
+        originY: 'center',
+        metadata: {
+            frameType: type // SEMPRE definir o tipo
+        }
+    });
+    
+    canvas.add(frame);
+    canvas.setActiveObject(frame);
+    activeFrame = frame; // Atualizar referência global
+    canvas.renderAll();
+}
+```
+
+## Padrão de Imagens
+- **Validação obrigatória**: verificar se `activeFrame` existe antes de adicionar imagem
+- **Escalonamento uniforme**: usar `Math.max()` para cover/fill
+- **Cropping inicial**: centralizar a imagem no frame
+
+```javascript
+// ✅ Padrão para adição de imagens
+function addImage(imageUrl) {
+    if (!activeFrame) {
+        alert('Please select or add a frame first!');
+        return;
+    }
+    
+    fabric.Image.fromURL(imageUrl, function(img) {
+        const dimensions = getFrameDimensions(activeFrame);
+        const scale = Math.max(
+            dimensions.width / img.width, 
+            dimensions.height / img.height
+        );
+        
+        img.set({
+            left: activeFrame.left,
+            top: activeFrame.top,
+            originX: 'center',
+            originY: 'center',
+            scaleX: scale,
+            scaleY: scale
+        });
+        
+        // SEMPRE armazenar dados para edição
+        img.data = {
+            targetWidth: dimensions.width,
+            targetHeight: dimensions.height,
+            naturalWidth: img.width,
+            naturalHeight: img.height,
+            frameType: activeFrame.metadata.frameType
+        };
+    }, { crossOrigin: 'anonymous' });
+}
+```
+
+## Padrão de Grupos
+- **Estrutura**: `[frameReference, imageObject]`
+- **Dados do grupo**: armazenar referência do frame em `group.data`
+- **Eventos**: double-click para entrar em modo de edição
+
+```javascript
+// ✅ Padrão para criação de grupos
+const group = new fabric.Group([shapeRef, img], {
+    left: activeFrame.left,
+    top: activeFrame.top,
+    originX: 'center',
+    originY: 'center'
+});
+group.data = { shapeRef: shapeRef };
+
+// SEMPRE anexar eventos de edição
+group.on('mousedblclick', enterEditMode);
+```
+
+## Modo de Edição (Cropping)
+- **Entrada**: double-click no grupo
+- **Saída**: double-click na imagem em modo de edição
+- **Backdrop**: imagem fantasma com `opacity: 0.25`
+- **Controles**: remover todos os controles de redimensionamento
+
+```javascript
+// ✅ Padrão para modo de edição
+const enterEditMode = function() {
+    // Separar grupo em objetos individuais
+    canvas.remove(originalGroup);
+    canvas.add(shapeRef);
+    canvas.add(img);
+    
+    // Configurar frame como não-interativo
+    shapeRef.set({ 
+        selectable: false, 
+        evented: false, 
+        fill: 'red' 
+    });
+    
+    // Configurar imagem para cropping
+    img.clipPath = null;
+    img.isCropping = true;
+    img.setControlsVisibility({
+        mtr: false, mt: false, mb: false, ml: false, mr: false,
+        bl: false, br: false, tl: false, tr: false
+    });
+};
+```
+
+## Variáveis Globais
+- **`canvas`**: instância principal do Fabric.js
+- **`activeFrame`**: frame atualmente selecionado/ativo
+- Sempre atualizar `activeFrame` nos eventos de seleção
+
+## Eventos do Canvas
+```javascript
+// ✅ Padrão para eventos de seleção
+canvas.on('selection:created', function(e) {
+    activeFrame = null;
+    if (e.selected[0].metadata && e.selected[0].metadata.frameType) {
+        activeFrame = e.selected[0];
+    }
+});
+
+canvas.on('selection:cleared', function() {
+    activeFrame = null;
+});
+```
+
+## Interface HTML
+- **Estrutura**: `.main-container` > `.controls-panel` + `.canvas-panel`
+- **Botões**: usar `onclick="addFrame('tipo')"` para frames
+- **Upload**: input file com `onchange="uploadImage(event)"`
+
+## Convenções de Naming
+- **Funções**: camelCase descritivo (`addFrame`, `createClipPath`, `getFrameDimensions`)
+- **Variáveis**: camelCase (`activeFrame`, `originalGroup`)
+- **Constantes**: UPPER_CASE quando aplicável
+- **Metadata**: sempre usar `frameType` para identificar tipo de frame
