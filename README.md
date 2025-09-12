@@ -1,5 +1,9 @@
 # Frames with Fabric.js ClipPath 🖼️
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![JavaScript](https://img.shields.io/badge/JavaScript-ES6+-blue.svg)](https://www.javascript.com/)
+[![Fabric.js](https://img.shields.io/badge/Fabric.js-5.3.1-blue.svg)](https://fabricjs.com/)
+
 An interactive demonstration of implementing frames using Fabric.js with ClipPath. This project allows you to create interesting visual compositions by applying different frame shapes to your images.
 
 ## ✨ Features
@@ -23,6 +27,13 @@ An interactive demonstration of implementing frames using Fabric.js with ClipPat
   - Double-click edit mode
   - Dynamic image cropping
 
+## 📋 Requirements
+
+- Modern web browser with HTML5 Canvas support
+- JavaScript enabled
+- Internet connection for CDN dependencies
+- [Fabric.js](https://fabricjs.com/) (loaded via CDN)
+
 ## 🚀 How to Use
 
 1. Select a frame by clicking one of the shape buttons
@@ -33,7 +44,7 @@ An interactive demonstration of implementing frames using Fabric.js with ClipPat
 
 ## 💻 Technologies Used
 
-- [Fabric.js](http://fabricjs.com/) - Powerful canvas manipulation library
+- [Fabric.js v5.3.1](http://fabricjs.com/) - Powerful canvas manipulation library
 - HTML5 Canvas
 - JavaScript ES6+
 - CSS3 with responsive design
@@ -142,16 +153,29 @@ The project is fully responsive and adapts to different screen sizes:
 - Adaptive controls for mobile devices
 - Touch-optimized interface
 
-## 🛠️ Local Installation
+## 🛠️ Installation
 
+### Option 1: Direct Browser Usage
+1. Download or clone this repository
+2. Open the `index.html` file directly in your web browser
+3. No additional installation required - all dependencies are loaded via CDN
+
+### Option 2: Local Development
 1. Clone the repository:
 ```bash
-git clone https://github.com/your-username/Frames-with-Fabric.js-ClipPath.git
+git clone https://github.com/adrianohcampos/Frames-with-Fabric.js-ClipPath.git
 ```
 
-2. Open the `index.html` file in your browser
+2. Navigate to the project directory:
+```bash
+cd Frames-with-Fabric.js-ClipPath
+```
 
-No additional installation is required as the project uses CDN to load Fabric.js.
+3. Open `index.html` in your preferred browser or serve via a local web server
+
+### Dependencies
+- **Fabric.js v5.3.1** - Loaded automatically via CDN
+- **Modern Browser** - Chrome, Firefox, Safari, or Edge (latest versions recommended)
 
 ## 📄 License
 
@@ -159,7 +183,35 @@ This project is under the MIT license. See the [LICENSE](LICENSE) file for more 
 
 ## 🤝 Contributing
 
-Contributions are welcome! Feel free to open an issue or submit a pull request.
+We welcome contributions! Here's how you can help improve this project:
+
+### Ways to Contribute
+- 🐛 **Report Bugs** - Open an issue with detailed information about the problem
+- 💡 **Suggest Features** - Share your ideas for new frame types or improvements
+- 🔧 **Code Contributions** - Submit pull requests with bug fixes or new features
+- 📖 **Documentation** - Help improve documentation and examples
+
+### Development Guidelines
+1. **Follow the existing code style** - Use the established patterns in `script.js`
+2. **Test your changes** - Ensure all existing functionality still works
+3. **Update documentation** - Keep README and code comments current
+4. **Use descriptive commit messages** - Make it clear what your changes accomplish
+
+### Getting Started
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/your-feature-name`
+3. Make your changes and test them
+4. Commit your changes: `git commit -m 'Add some feature'`
+5. Push to the branch: `git push origin feature/your-feature-name`
+6. Open a Pull Request
+
+### Code Style
+- Use `const` and `let` instead of `var`
+- Write descriptive variable and function names
+- Add JSDoc comments for complex functions
+- Follow the existing project structure
+
+For questions or suggestions, feel free to open an issue!
 
 ---
 
