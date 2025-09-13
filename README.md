@@ -19,13 +19,27 @@ An interactive demonstration of implementing frames using Fabric.js with ClipPat
 
 - **Special Shapes**
   - Star ⭐
-  - Heart ❤️
+  - Heart ❤️ (SVG Path-based)
 
-- **Image Manipulation**
+- **Advanced Image Manipulation**
   - Custom image upload
   - Intuitive resizing and positioning
-  - Double-click edit mode
-  - Dynamic image cropping
+  - Double-click edit mode with advanced cropping
+  - Dynamic image cropping with backdrop preview
+  - Real-time crop adjustment with mouse controls
+  - Checkerboard pattern background for better visibility
+  - Frame locking system during editing
+  - Automatic image scaling and centering
+  - SVG path support for complex shapes
+
+- **Enhanced Editing Experience**
+  - Visual frame outline during edit mode
+  - Semi-transparent backdrop for full image preview
+  - Precise crop positioning with drag controls
+  - Scale-based cropping system
+  - Object stacking preservation
+  - Keyboard shortcuts (Delete key support)
+  - State management for edit modes
 
 ## 📋 Requirements
 
@@ -36,11 +50,22 @@ An interactive demonstration of implementing frames using Fabric.js with ClipPat
 
 ## 🚀 How to Use
 
-1. Select a frame by clicking one of the shape buttons
-2. Click "Add Image" or upload your own image
-3. Double-click the image to enter edit mode
-4. Adjust the image position and zoom as desired
-5. Double-click again to exit edit mode
+1. **Select a Frame**: Click one of the shape buttons to create a frame
+2. **Add Image**: Click "Add Image" or upload your own image file
+3. **Enter Edit Mode**: Double-click the frame+image group to enter advanced editing mode
+4. **Advanced Cropping**: 
+   - Drag the image to adjust the crop position
+   - Use corner handles to resize the crop area
+   - The semi-transparent backdrop shows the full image
+   - The checkerboard background provides better visibility
+5. **Exit Edit Mode**: Double-click the image or click outside the frame to exit edit mode
+6. **Additional Controls**:
+   - Press `Delete` key to remove selected objects
+   - Drag frames to reposition them
+   - Use corner handles to resize frames
+   - Rotate using the top rotation handle
+   - Click outside frame to deselect
+   - Double-click frame group to enter edit mode
 
 ## 💻 Technologies Used
 
@@ -69,11 +94,16 @@ An interactive demonstration of implementing frames using Fabric.js with ClipPat
    - Maintains aspect ratio while filling frame
    - Supports both local uploads and URL sources
 
-4. **Edit Mode Implementation**
+4. **Advanced Edit Mode Implementation**
    - Custom double-click handler for mode switching
    - Temporary removal of ClipPath during editing
    - Semi-transparent backdrop for full image visibility
    - Real-time position and crop updates
+   - Checkerboard pattern background for better visibility
+   - Object locking system during editing
+   - State management with frameEditState object
+   - Z-index preservation for proper object stacking
+   - Advanced mouse event handling for precise control
 
 ### Technical Features
 
@@ -105,34 +135,84 @@ An interactive demonstration of implementing frames using Fabric.js with ClipPat
   );
   ```
 
-- **Edit Mode**
+- **Advanced Edit Mode**
   ```javascript
-  // Edit mode activation
+  // Edit mode activation with state management
   group.on('mousedblclick', enterEditMode);
   img.on('mousedblclick', exitEditMode);
+  
+  // State management
+  const frameEditState = {
+      isEditMode: false,
+      zIndex: null,
+      shapeRef: null
+  };
+  ```
+
+- **Advanced Cropping System**
+  ```javascript
+  // Checkerboard pattern for better visibility
+  const checkerboardPattern = new fabric.Pattern({
+      source: tempCanvas,
+      repeat: 'repeat'
+  });
+  
+  // Real-time crop adjustment
+  const handleScaling = function (e) {
+      const image = e.transform.target;
+      if (image.isCropping) {
+          // Advanced crop calculations
+          const diffX = image.left - backdrop.left;
+          const diffY = image.top - backdrop.top;
+          image.cropX = diffX;
+          image.cropY = diffY;
+      }
+  };
+  ```
+
+- **Object Locking System**
+  ```javascript
+  // Lock all objects except active one
+  function lockAllExcept(activeObject) {
+      canvas.getObjects().forEach(obj => {
+          if (obj !== activeObject) {
+              obj.set({ selectable: false, evented: false });
+          }
+      });
+  }
   ```
 
 ### Tools and Libraries
 
 1. **Fabric.js Features Used**
    - Canvas manipulation
-   - Object grouping
-   - Event handling
-   - ClipPath masking
-   - Image loading and processing
-   - Geometric shape generation
+   - Object grouping and ungrouping
+   - Advanced event handling (mouse, scaling, selection)
+   - ClipPath masking with dynamic generation
+   - Image loading and processing with cropping
+   - Geometric shape generation (Circle, Triangle, Hexagon, Star, Heart)
+   - SVG Path support for complex shapes
+   - Pattern generation (checkerboard background)
+   - Object stacking and z-index management
+   - State preservation and restoration
 
 2. **Browser APIs**
    - File API for image uploads
    - Canvas API (via Fabric.js)
-   - DOM Event handling
-   - CSS3 transforms
+   - Advanced DOM Event handling (keyboard, mouse)
+   - CSS3 transforms and patterns
+   - JSON data persistence
+   - Cross-origin image loading
 
 3. **Development Tools**
    - Modern JavaScript (ES6+)
    - CSS3 with Flexbox
    - Responsive design principles
    - Event-driven architecture
+   - State management patterns
+   - Object-oriented design
+   - Error handling and fallbacks
+   - Performance optimization techniques
 
 ## 🎨 Editing Features
 
@@ -140,11 +220,26 @@ An interactive demonstration of implementing frames using Fabric.js with ClipPat
   - Drag to move the frame + image set
   - Resize using border controls
   - Rotate using the top control
+  - Delete objects with Delete key
+  - Multi-object selection and management
 
-- **Edit Mode (Double Click)**
-  - Adjust image framing
-  - Precise zoom and positioning
-  - Full image preview with transparency
+- **Advanced Edit Mode (Double Click)**
+  - Adjust image framing with precise control
+  - Real-time crop positioning with mouse drag
+  - Scale-based cropping system
+  - Semi-transparent backdrop for full image preview
+  - Checkerboard pattern background for better visibility
+  - Visual frame outline with dashed border
+  - Object locking system prevents accidental edits
+  - State preservation during editing
+
+## 💾 Data Persistence
+
+The project includes automatic data persistence features:
+- **Auto-save**: Canvas state is automatically saved to `data.json`
+- **State Restoration**: Project loads previous state on page refresh
+- **JSON Export**: Complete canvas state can be exported and imported
+- **Metadata Preservation**: All frame types, positions, and crop data are maintained
 
 ## 📱 Responsiveness
 
