@@ -1,7 +1,16 @@
-const canvas = new fabric.Canvas('canvas');
-let activeFrame = null;
-let isEditMode = false;
+// canvas.toJSON(['metadata','data'])
 
+const canvas = new fabric.Canvas('canvas');
+
+fetch("data.json").then(response => response.json()).then(data => {
+    canvas.loadFromJSON(data);
+});
+
+let activeFrame = null;
+let originalGroup = null;
+const frameEditState = {
+    isEditMode: false
+};
 
 // Create a temporary canvas to generate the checkerboard pattern
 const tempCanvas = document.createElement('canvas');
@@ -13,14 +22,14 @@ const ctx = tempCanvas.getContext('2d');
 ctx.fillStyle = '#fff';
 ctx.fillRect(0, 0, 10, 10);
 ctx.fillRect(10, 10, 10, 10);
-ctx.fillStyle = '#eee';
+ctx.fillStyle = '#ccc';
 ctx.fillRect(10, 0, 10, 10);
 ctx.fillRect(0, 10, 10, 10);
 
 // Create the pattern with fabric.Pattern
 const checkerboardPattern = new fabric.Pattern({
-  source: tempCanvas,
-  repeat: 'repeat'
+    source: tempCanvas,
+    repeat: 'repeat'
 });
 
 // Helper function to create clipPath based on frame type
@@ -123,8 +132,6 @@ function createClipPath(frameType, width, height, frame = null) {
 
 // Helper function to get frame dimensions
 function getFrameDimensions(frame) {
-    // getBoundingRect considers the object's scale and angle, providing its actual dimensions on the canvas.
-    // This is more robust than calculating based on base width/height and scale factors.
     const bounds = frame.getBoundingRect();
     return { width: bounds.width, height: bounds.height };
 }
@@ -307,8 +314,8 @@ function addImage(imageUrl) {
     }
 
     fabric.Image.fromURL(imageUrl, function (img) {
-        
-        let activeFrameAngle = activeFrame.angle || 0;
+
+        let activeFrameAngle = (typeof activeFrame.angle === 'number') ? activeFrame.angle : 0;
         activeFrame.set({ angle: 0 });
 
         canvas.renderAll();
@@ -361,7 +368,7 @@ function addImage(imageUrl) {
         canvas.renderAll();
 
         // Ensure image remains selectable
-        img.set({ selectable: true});
+        img.set({ selectable: true });
         // Store metadata for editing (zoom keeping frame fixed)
         img.data = {
             targetWidth: targetWidth,
@@ -376,7 +383,6 @@ function addImage(imageUrl) {
         };
 
         activeFrame.strokeWidth = 0;
-        // activeFrame.set({ angle: activeFrameAngle });
 
         // Store frame reference for edit mode toggle
         const shapeRef = activeFrame;
@@ -384,14 +390,15 @@ function addImage(imageUrl) {
         shapeRef.set({
             fill: 'transparent',
         });
-        
+
         // Group frame and image
         const group = new fabric.Group([shapeRef, img], {
             left: activeFrame.left,
             top: activeFrame.top,
             originX: 'center',
             originY: 'center',
-            angle: activeFrameAngle || 0,    
+            angle: activeFrameAngle || 0,
+            metadata: { isFrameGroup: true }
         });
         group.data = { shapeRef: shapeRef };
 
@@ -402,290 +409,375 @@ function addImage(imageUrl) {
         activeFrame = null;
         canvas.renderAll();
 
-
-        let originalGroup = group; // store original group reference
-
-        const enterEditMode = function () {
-            isEditMode = true;
-            let ActiveObject = canvas.getActiveObject();
-
-            // configure cropping mode as in crop.html
-            canvas.remove(originalGroup);
-            const shapeRef = ActiveObject._objects[0]; // Assumindo que shapeRef é o _objects[0]; defina explicitamente se não for
-            const imgCurrent = ActiveObject._objects[1];
-
-            const groupScaleX = ActiveObject.scaleX;
-            const groupScaleY = ActiveObject.scaleY;
-            const groupAngle = ActiveObject.angle || 0;
-            // Adiciona um retângulo azul do tamanho do canvas
-            const checkerboardRect = new fabric.Rect({
-                left: 0,
-                top: 0,
-                width: canvas.getWidth(),
-                height: canvas.getHeight(),
-                fill: checkerboardPattern,
-                selectable: false,
-                evented: false,
-                originX: 'left',
-                originY: 'top',
-                id: 'checkerboardRect'
-            });
-            
-            canvas.add(shapeRef);
-            canvas.add(imgCurrent);
-            
-            shapeRef.set({ selectable: false, evented: false, fill: 'red' });
-            // remove clipPath and configure for cropping
-            imgCurrent.clipPath = null;
-            imgCurrent.isCropping = true;
-            imgCurrent.set({
-                lockMovementX: true,
-                lockMovementY: true,
-                hasControls: true,
-                selectable: true,
-            });
-
-            imgCurrent.setControlsVisibility({
-                mtr: false,
-                mt: false,
-                mb: false,
-                ml: false,
-                mr: false,
-                bl: false,
-                br: false,
-                tl: false,
-                tr: false,
-            });
-            
-            // create backdrop
-            fabric.Image.fromURL(imgCurrent._originalElement.currentSrc, function (backdrop) {
-                backdrop.imageId = imgCurrent.id;
-                imgCurrent.backdropId = 'backdrop-' + Date.now();
-                
-                // Restore the original position calculation, which user confirmed was correct,
-                // but apply the correct angle from the now-correctly-rotated main image.
-                let imgTLx = ActiveObject.left - (imgCurrent.width * imgCurrent.scaleX * groupScaleX) / 2;
-                let imgTLy = ActiveObject.top - (imgCurrent.height * imgCurrent.scaleY * groupScaleY) / 2;
-                
-                backdrop.set({
-                    id: imgCurrent.backdropId,
-                    originX: 'left',
-                    originY: 'top',
-                    left: (imgTLx - (imgCurrent.cropX || 0) * imgCurrent.scaleX * groupScaleX),
-                    top: (imgTLy - (imgCurrent.cropY || 0) * imgCurrent.scaleY * groupScaleY),
-                    angle: imgCurrent.angle, // Use the main image's angle as the source of truth
-                    width: imgCurrent._element.naturalWidth,
-                    height: imgCurrent._element.naturalHeight,
-                    scaleX: imgCurrent.scaleX * groupScaleX,
-                    scaleY: imgCurrent.scaleY * groupScaleY,
-                    angle: groupAngle,
-                    opacity: 0.30,
-                    selectable: false,
-                    evented: false,
-                    lockMovementX: true,
-                    lockMovementY: true,
-                    controls: false,
-                });
-
-                backdrop.setControlsVisibility({
-                    mtr: false, mt: false, mb: false, ml: false, mr: false,
-                    bl: false, br: false, tl: false, tr: false,
-                });
-                canvas.add(backdrop);
-                // backdrop.setPositionByOrigin(ActiveObject.getCenterPoint(), 'center', 'center');
-                // backdrop.setCoords();
-                canvas.renderAll();
-                canvas.sendBackwards(backdrop);
-                canvas.sendBackwards(checkerboardRect);
-            }, { crossOrigin: 'anonymous' });
-
-            // handlers same as crop.html
-            const handleScaling = function (e) {
-                const image = e.transform.target;
-                if (image.isCropping) {
-                    image.isScaling = true;
-                    const backdrop = canvas.getObjects().find(obj => obj.id === image.backdropId);
-                    if (backdrop) {
-                        // don't change scaling
-                        image.scaleX = backdrop.scaleX;
-                        image.scaleY = backdrop.scaleY;
-                        // change size using cropX & cropY
-                        const diffX = image.left - backdrop.left;
-                        const diffY = image.top - backdrop.top;
-                        image.cropX = diffX;
-                        image.cropY = diffY;
-                        image.width = backdrop.width - diffX;
-                        image.height = backdrop.height - diffY;
-                        // limits
-                        if (image.width > backdrop.width) image.width = backdrop.width;
-                        if (image.height > backdrop.height) image.height = backdrop.height;
-                        if (backdrop.left > image.left) backdrop.left = image.left;
-                        if (backdrop.top > image.top) backdrop.top = image.top;
-                        if (backdrop.top + backdrop.height < image.top + image.height) backdrop.top = image.top + image.height - backdrop.height;
-                        if (backdrop.left + backdrop.width < image.left + image.width) backdrop.left = image.left + image.width - backdrop.width;
-                    }
-                }
-                canvas.renderAll();
-            };
-
-            const handleMouseDown = function (e) {
-                const image = e.target;
-                image.isMouseDown = true;
-                image.mouseDownX = e.pointer.x;
-                image.mouseDownY = e.pointer.y;
-                const backdrop = canvas.getObjects().find(obj => obj.id === image.backdropId);
-                if (backdrop) {
-                    backdrop._left = backdrop.left;
-                    backdrop._top = backdrop.top;
-                }
-            };
-
-            const handleMouseMove = function (e) {
-                const image = e.target;
-
-                const backdrop = canvas.getObjects().find(obj => obj.id === image.backdropId);
-                if (image.isMouseDown && backdrop && !image.isScaling) {
-
-                    const diffX = e.pointer.x - image.mouseDownX;
-                    const diffY = e.pointer.y - image.mouseDownY;
-                    
-                    // backdrop movement
-                    backdrop.left = backdrop._left + diffX;
-                    backdrop.top = backdrop._top + diffY;
-                    
-                    // backdrop limits (use image top-left coordinates)
-                    const imageTLx = ActiveObject.left - (image.width * image.scaleX * groupScaleX) / 2;
-                    const imageTLy = ActiveObject.top - (image.height * image.scaleY * groupScaleY) / 2;
-                    const imageW = image.width * image.scaleX * groupScaleX;
-                    const imageH = image.height * image.scaleY * groupScaleY;
-                    const backdropW = backdrop.width * backdrop.scaleX;
-                    const backdropH = backdrop.height * backdrop.scaleY;
-
-                    if (backdrop.left > imageTLx) backdrop.left = imageTLx;
-                    if (backdrop.top > imageTLy) backdrop.top = imageTLy;
-                    if (backdrop.left + backdropW < imageTLx + imageW) backdrop.left = imageTLx + imageW - backdropW;
-                    if (backdrop.top + backdropH < imageTLy + imageH) backdrop.top = imageTLy + imageH - backdropH;
-
-                    
-                    // crop changes (consider image has center origin)
-                    image.cropX = (imageTLx - backdrop.left) / (image.scaleX * groupScaleX);
-                    image.cropY = (imageTLy - backdrop.top) / (image.scaleY * groupScaleY);
-                    canvas.renderAll();
-                }
-            };
-
-            const handleMouseUp = function (e) {
-                const image = e.target;
-                image.isMouseDown = false;
-                image.isScaling = false;
-                const backdrop = canvas.getObjects().find(obj => obj.id === image.backdropId);
-                if (backdrop) {
-                    backdrop._left = backdrop.left;
-                    backdrop._top = backdrop.top;
-                }
-            };
-
-            imgCurrent.on('scaling', handleScaling);
-            imgCurrent.on('mousedown', handleMouseDown);
-            imgCurrent.on('mousemove', handleMouseMove);
-            imgCurrent.on('mouseup', handleMouseUp);  
-
-            canvas.renderAll();
-        };
-        const exitEditMode = function () {
-
-            if(!isEditMode) return;
-
-            isEditMode = false;
-            
-            let ActiveObject = canvas.getActiveObject();
-            
-            let imgCurrent = ActiveObject;
-
-            // remove backdrop and apply final crop
-            const backdrop = canvas.getObjects().find(obj => obj.id === imgCurrent.backdropId);
-            if (backdrop) canvas.remove(backdrop);
-            const checkerboardRect = canvas.getObjects().find(obj => obj.id === 'checkerboardRect');
-            if (checkerboardRect) canvas.remove(checkerboardRect);            
-
-            // remove all cropping event listeners
-            imgCurrent.off('scaling');
-            imgCurrent.off('mousedown');
-            imgCurrent.off('mousemove');
-            imgCurrent.off('mouseup');
-            imgCurrent.off('deselected');
-
-            // disable crop
-            imgCurrent.isCropping = false;
-            imgCurrent.lockMovementX = false;
-            imgCurrent.lockMovementY = false;
-            imgCurrent.setControlsVisibility({
-                mtr: true, mt: true, mb: true, ml: true, mr: true,
-                bl: true, br: true, tl: true, tr: true,
-            });
-
-            // apply final crop same as crop.html
-            const meta = imgCurrent.data || {};
-            const targetW = meta.targetWidth;
-            const targetH = meta.targetHeight;
-            // tamanho de recorte corrigido pela escala do grupo
-            const cropWidth = targetW / (imgCurrent.scaleX);
-            const cropHeight = targetH / (imgCurrent.scaleY);
-
-
-            // center in frame
-            imgCurrent.set({
-                left: shapeRef.left,
-                top: shapeRef.top,
-                originX: 'center',
-                originY: 'center',
-            });
-
-
-            // create clipPath of frame size
-            imgCurrent.clipPath = createClipPath(meta.frameType, cropWidth, cropHeight);
-
-            // update metadata
-            meta.cropX = imgCurrent.cropX;
-            meta.cropY = imgCurrent.cropY;
-            meta.cropWidth = cropWidth * imgCurrent.scaleX;
-            meta.cropHeight = cropHeight * imgCurrent.scaleY;
-            imgCurrent.data = meta;
-
-            shapeRef.set({ fill: 'transparent' });
-            canvas.renderAll();
-            // reconstruct original group
-            originalGroup = new fabric.Group([shapeRef, imgCurrent], {
-                left: originalGroup.left,
-                top: originalGroup.top,
-                scaleX: originalGroup.scaleX,
-                scaleY: originalGroup.scaleY,
-                angle: originalGroup.angle,
-                originX: 'center',
-                originY: 'center'
-            });
-
-            originalGroup.data = { shapeRef: shapeRef };
-            canvas.add(originalGroup);
-            canvas.setActiveObject(originalGroup);
-            canvas.renderAll();
-            // reattach handler to original group
-            originalGroup.on('mousedblclick', enterEditMode);
-        };
-
-        // Double click to enter; double click on image to exit
-        group.on('mousedblclick', enterEditMode);
-        img.on('mousedblclick', exitEditMode); 
-
-        // Optional: Deselect to avoid interference
-        /* group.on('deselected', function () {
-            canvas.discardActiveObject(); // Remove active selection
-            canvas.renderAll();
-        }); */
+        originalGroup = group; // store original group reference
 
 
     }, { crossOrigin: 'anonymous' });
 
+}
+
+const enterEditMode = function (e) {
+
+    frameEditState.isEditMode = true;
+    let ActiveObject = e.target;
+    originalGroup = e.target;
+
+    // get the index of the active object
+    frameEditState.zIndex = canvas.getObjects().indexOf(ActiveObject);
+
+    // lock all except the active object
+    lockAllExcept(e.target)
+
+    // configure cropping mode as in crop.html
+    canvas.remove(originalGroup);
+
+    const shapeRef = ActiveObject._objects.find(obj => obj.type !== 'image');
+    const imgCurrent = ActiveObject._objects.find(obj => obj.type === 'image');
+
+    imgCurrent.on('mousedblclick', exitEditMode);
+
+    frameEditState.shapeRef = shapeRef;
+
+    const groupScaleX = ActiveObject.scaleX;
+    const groupScaleY = ActiveObject.scaleY;
+    const groupAngle = ActiveObject.angle || 0;
+
+    // create checkerboard rect
+    const checkerboardRect = new fabric.Rect({
+        left: 0,
+        top: 0,
+        width: canvas.getWidth(),
+        height: canvas.getHeight(),
+        fill: checkerboardPattern,
+        selectable: false,
+        evented: true,
+        originX: 'left',
+        originY: 'top',
+        id: 'checkerboardRect'
+    });
+
+    canvas.preserveObjectStacking = true;
+
+    canvas.add(imgCurrent);
+    canvas.add(shapeRef);
+
+    shapeRef.set({
+        opacity: 1,
+        selectable: false,
+        evented: false,
+        strokeWidth: 2,
+        strokeUniform: true,
+        stroke: 'rgba(0, 162, 255, 0.8)',
+        strokeDashArray: [5, 5],
+    });
+    // remove clipPath and configure for cropping
+    imgCurrent.clipPath = null;
+    imgCurrent.isCropping = true;
+    imgCurrent.set({
+        lockMovementX: true,
+        lockMovementY: true,
+        hasControls: true,
+        selectable: true,
+    });
+
+    imgCurrent.setControlsVisibility({
+        mtr: false,
+        mt: false,
+        mb: false,
+        ml: false,
+        mr: false,
+        bl: false,
+        br: false,
+        tl: false,
+        tr: false,
+    });
+
+
+    // create backdrop
+    fabric.Image.fromURL(imgCurrent._originalElement.currentSrc, function (backdrop) {
+        backdrop.imageId = imgCurrent.id;
+        imgCurrent.backdropId = 'backdrop-' + Date.now();
+
+        // Restore the original position calculation, which user confirmed was correct,
+        // but apply the correct angle from the now-correctly-rotated main image.
+        let imgTLx = ActiveObject.left - (imgCurrent.width * imgCurrent.scaleX * groupScaleX) / 2;
+        let imgTLy = ActiveObject.top - (imgCurrent.height * imgCurrent.scaleY * groupScaleY) / 2;
+
+        backdrop.set({
+            id: imgCurrent.backdropId,
+            originX: 'left',
+            originY: 'top',
+            left: (imgTLx - (imgCurrent.cropX || 0) * imgCurrent.scaleX * groupScaleX),
+            top: (imgTLy - (imgCurrent.cropY || 0) * imgCurrent.scaleY * groupScaleY),
+            angle: imgCurrent.angle, // Use the main image's angle as the source of truth
+            width: imgCurrent._element.naturalWidth,
+            height: imgCurrent._element.naturalHeight,
+            scaleX: imgCurrent.scaleX * groupScaleX,
+            scaleY: imgCurrent.scaleY * groupScaleY,
+            angle: groupAngle,
+            opacity: 0.30,
+            selectable: false,
+            evented: false,
+            lockMovementX: true,
+            lockMovementY: true,
+            controls: false,
+        });
+
+        backdrop.setControlsVisibility({
+            mtr: false, mt: false, mb: false, ml: false, mr: false,
+            bl: false, br: false, tl: false, tr: false,
+        });
+        canvas.add(backdrop);
+        // backdrop.setPositionByOrigin(ActiveObject.getCenterPoint(), 'center', 'center');
+        // backdrop.setCoords();
+        canvas.renderAll();
+        canvas.sendBackwards(backdrop);
+        canvas.sendBackwards(checkerboardRect);
+        canvas.bringForward(imgCurrent);
+        canvas.bringForward(shapeRef);
+    }, { crossOrigin: 'anonymous' });
+
+    // handlers same as crop.html
+    const handleScaling = function (e) {
+        const image = e.transform.target;
+        if (image.isCropping) {
+            image.isScaling = true;
+            const backdrop = canvas.getObjects().find(obj => obj.id === image.backdropId);
+            if (backdrop) {
+                // don't change scaling
+                image.scaleX = backdrop.scaleX;
+                image.scaleY = backdrop.scaleY;
+                // change size using cropX & cropY
+                const diffX = image.left - backdrop.left;
+                const diffY = image.top - backdrop.top;
+                image.cropX = diffX;
+                image.cropY = diffY;
+                image.width = backdrop.width - diffX;
+                image.height = backdrop.height - diffY;
+                // limits
+                if (image.width > backdrop.width) image.width = backdrop.width;
+                if (image.height > backdrop.height) image.height = backdrop.height;
+                if (backdrop.left > image.left) backdrop.left = image.left;
+                if (backdrop.top > image.top) backdrop.top = image.top;
+                if (backdrop.top + backdrop.height < image.top + image.height) backdrop.top = image.top + image.height - backdrop.height;
+                if (backdrop.left + backdrop.width < image.left + image.width) backdrop.left = image.left + image.width - backdrop.width;
+            }
+        }
+        canvas.renderAll();
+    };
+
+    const handleMouseDown = function (e) {
+        const image = e.target;
+        image.isMouseDown = true;
+        image.mouseDownX = e.pointer.x;
+        image.mouseDownY = e.pointer.y;
+        const backdrop = canvas.getObjects().find(obj => obj.id === image.backdropId);
+        if (backdrop) {
+            backdrop._left = backdrop.left;
+            backdrop._top = backdrop.top;
+        }
+    };
+
+    const handleMouseMove = function (e) {
+        const image = e.target;
+
+        const backdrop = canvas.getObjects().find(obj => obj.id === image.backdropId);
+        if (image.isMouseDown && backdrop && !image.isScaling) {
+
+            const diffX = e.pointer.x - image.mouseDownX;
+            const diffY = e.pointer.y - image.mouseDownY;
+
+            // backdrop movement
+            backdrop.left = backdrop._left + diffX;
+            backdrop.top = backdrop._top + diffY;
+
+            // backdrop limits (use image top-left coordinates)
+            const imageTLx = ActiveObject.left - (image.width * image.scaleX * groupScaleX) / 2;
+            const imageTLy = ActiveObject.top - (image.height * image.scaleY * groupScaleY) / 2;
+            const imageW = image.width * image.scaleX * groupScaleX;
+            const imageH = image.height * image.scaleY * groupScaleY;
+            const backdropW = backdrop.width * backdrop.scaleX;
+            const backdropH = backdrop.height * backdrop.scaleY;
+
+            if (backdrop.left > imageTLx) backdrop.left = imageTLx;
+            if (backdrop.top > imageTLy) backdrop.top = imageTLy;
+            if (backdrop.left + backdropW < imageTLx + imageW) backdrop.left = imageTLx + imageW - backdropW;
+            if (backdrop.top + backdropH < imageTLy + imageH) backdrop.top = imageTLy + imageH - backdropH;
+
+
+            // crop changes (consider image has center origin)
+            image.cropX = (imageTLx - backdrop.left) / (image.scaleX * groupScaleX);
+            image.cropY = (imageTLy - backdrop.top) / (image.scaleY * groupScaleY);
+            canvas.renderAll();
+        }
+    };
+
+    const handleMouseUp = function (e) {
+        const image = e.target;
+        image.isMouseDown = false;
+        image.isScaling = false;
+        const backdrop = canvas.getObjects().find(obj => obj.id === image.backdropId);
+        if (backdrop) {
+            backdrop._left = backdrop.left;
+            backdrop._top = backdrop.top;
+        }
+    };
+
+    // add event listeners for scaling, mouse down, mouse move, and mouse up
+    imgCurrent.on('scaling', handleScaling);
+    imgCurrent.on('mousedown', handleMouseDown);
+    imgCurrent.on('mousemove', handleMouseMove);
+    imgCurrent.on('mouseup', handleMouseUp);
+
+    // exit edit mode when clicking on the checkerboard rect
+    checkerboardRect.on('mousedown', () => {
+        checkerboardRect.off('mousedown');
+        let e = { target: imgCurrent };
+        exitEditMode(e)
+    })
+    canvas.renderAll();
+};
+const exitEditMode = function (e) {
+    e.target.off('mousedblclick');
+
+    if (!frameEditState.isEditMode) return;
+
+    frameEditState.isEditMode = false;
+
+    let imgCurrent = e.target;
+
+    canvas.bringForward(imgCurrent);
+
+    let shapeRef = frameEditState.shapeRef;
+
+    // remove backdrop and apply final crop
+    const backdrop = canvas.getObjects().find(obj => obj.id === imgCurrent.backdropId);
+    if (backdrop) canvas.remove(backdrop);
+    const checkerboardRect = canvas.getObjects().find(obj => obj.id === 'checkerboardRect');
+    if (checkerboardRect) canvas.remove(checkerboardRect);
+
+    // remove all cropping event listeners
+    imgCurrent.off('scaling');
+    imgCurrent.off('mousedown');
+    imgCurrent.off('mousemove');
+    imgCurrent.off('mouseup');
+    imgCurrent.off('deselected');
+
+    // disable crop
+    imgCurrent.isCropping = false;
+    imgCurrent.lockMovementX = false;
+    imgCurrent.lockMovementY = false;
+    imgCurrent.setControlsVisibility({
+        mtr: true, mt: true, mb: true, ml: true, mr: true,
+        bl: true, br: true, tl: true, tr: true,
+    });
+
+    // apply final crop same as crop.html
+    const meta = imgCurrent.data || {};
+    const targetW = meta.targetWidth;
+    const targetH = meta.targetHeight;
+    // tamanho de recorte corrigido pela escala do grupo
+    const cropWidth = targetW / (imgCurrent.scaleX);
+    const cropHeight = targetH / (imgCurrent.scaleY);
+
+    // center in frame
+    imgCurrent.set({
+        left: shapeRef.left || 0,
+        top: shapeRef.top || 0,
+        originX: 'center',
+        originY: 'center',
+    });
+
+    // create clipPath of frame size
+    imgCurrent.clipPath = createClipPath(meta.frameType, cropWidth, cropHeight);
+
+    // update metadata
+    meta.cropX = imgCurrent.cropX;
+    meta.cropY = imgCurrent.cropY;
+    meta.cropWidth = cropWidth * imgCurrent.scaleX;
+    meta.cropHeight = cropHeight * imgCurrent.scaleY;
+    imgCurrent.data = meta;
+
+    shapeRef.set({ opacity: 0.5, fill: 'transparent', stroke: null });
+    canvas.renderAll();
+
+    // reconstruct original group
+    originalGroup = new fabric.Group([shapeRef, imgCurrent], {
+        left: originalGroup.left,
+        top: originalGroup.top,
+        scaleX: originalGroup.scaleX,
+        scaleY: originalGroup.scaleY,
+        angle: originalGroup.angle,
+        originX: 'center',
+        originY: 'center',
+        metadata: { isFrameGroup: true }
+    });
+
+    originalGroup.data = { shapeRef: shapeRef };
+
+    // Move the reconstructed group to the original zIndex position
+    if (typeof frameEditState.zIndex === 'number') {
+        console.log(frameEditState.zIndex);
+        // Remove individual objects first
+        canvas.remove(shapeRef);
+        canvas.remove(imgCurrent);
+        // Add the group at the correct position
+        canvas.insertAt(originalGroup, frameEditState.zIndex, false);
+    } else {
+        // Fallback: remove individual objects and add the group
+        canvas.remove(shapeRef);
+        canvas.remove(imgCurrent);
+        canvas.add(originalGroup);
+    }
+
+    // unlock all objects
+    unlockAll();
+    canvas.preserveObjectStacking = false;
+    canvas.setActiveObject(originalGroup);
+    canvas.renderAll();
+
+};
+
+function lockAllExcept(activeObject) {
+    // Unlock all objects first
+    unlockAll();
+
+    // Select the desired object
+    canvas.setActiveObject(activeObject);
+
+    // Lock all other objects
+    canvas.getObjects().forEach(obj => {
+        if (obj !== activeObject) {
+            // Store current values if they don't exist
+            if (obj.originalSelectable === undefined) {
+                obj.originalSelectable = obj.selectable;
+            }
+            if (obj.originalEvented === undefined) {
+                obj.originalEvented = obj.evented;
+            }
+
+            // Lock temporarily
+            obj.set({
+                selectable: false,
+                evented: false
+            });
+        }
+    });
+
+    canvas.renderAll();
+}
+
+function unlockAll() {
+    canvas.getObjects().forEach(obj => {
+        // Restore original values if they exist
+        if (obj.originalSelectable !== undefined && obj.originalEvented !== undefined) {
+            obj.set({
+                selectable: obj.originalSelectable,
+                evented: obj.originalEvented
+            });
+        }
+        // If we don't have original values, leave the object as is
+    });
 }
 
 canvas.on('selection:created', function (e) {
@@ -697,4 +789,31 @@ canvas.on('selection:created', function (e) {
 
 canvas.on('selection:cleared', function () {
     activeFrame = null;
+});
+
+canvas.on('mouse:dblclick', function (options) {
+    if (options.target) {
+        if (options.target.metadata && options.target.metadata.isFrameGroup) {
+            if (!frameEditState.isEditMode) {
+                enterEditMode(options);
+            }
+        }
+    }
+});
+
+// Allows deleting the selected object by pressing the Delete key
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Delete' || e.key === 'Del') {
+        const activeObject = canvas.getActiveObject();
+        if (activeObject) {
+            // if in edit mode, exit edit mode before deleting
+            if (frameEditState && frameEditState.isEditMode) {
+                exitEditMode();
+            }
+            canvas.remove(activeObject);
+            canvas.discardActiveObject();
+            canvas.renderAll();
+            activeFrame = null;
+        }
+    }
 });
