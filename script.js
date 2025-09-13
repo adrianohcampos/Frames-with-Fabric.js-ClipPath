@@ -29,8 +29,51 @@ ctx.fillRect(0, 10, 10, 10);
 // Create the pattern with fabric.Pattern
 const checkerboardPattern = new fabric.Pattern({
     source: tempCanvas,
-    repeat: 'repeat'
+    repeat: 'repeat',
 });
+
+
+const background = new Image();
+background.crossOrigin = 'anonymous'; // Para evitar problemas de CORS
+background.src = "87e22a62965f141aa08e93699b0b3527.webp";
+
+function createScaledPattern(object) {
+    const scaleX = 1 / object.scaleX;
+    const scaleY = 1 / object.scaleY;
+
+    // Frame dimensions
+    const frameW = object.width;
+    const frameH = object.height;
+
+    // Background image dimensions
+    const imgW = background.width;
+    const imgH = background.height;
+
+    // Calculate scale to cover the frame while maintaining aspect ratio
+    let scale = Math.max(frameW / imgW, frameH / imgH);
+
+    // Resized image size
+    const drawW = imgW * scale;
+    const drawH = imgH * scale;
+
+    // Center the image on the temporary canvas
+    const offsetX = (frameW - drawW) / 2;
+    const offsetY = (frameH - drawH) / 2;
+
+    const tempCanvasBg = document.createElement('canvas');
+    tempCanvasBg.width = background.width;
+    tempCanvasBg.height = background.height;
+    const ctxbg = tempCanvasBg.getContext("2d");
+
+    // ctxbg.clearRect(0, 0, frameW, frameH);
+    ctxbg.drawImage(background, offsetX, offsetY, drawW, drawH);
+
+    return new fabric.Pattern({
+        source: tempCanvasBg,
+        repeat: 'no-repeat', // Do not repeat, as it already covers the frame
+        patternTransform: [scaleX, 0, 0, scaleY, 0, 0]
+    });
+}
 
 // Helper function to create clipPath based on frame type
 function createClipPath(frameType, width, height, frame = null) {
@@ -142,11 +185,11 @@ function addFrame(type) {
     switch (type) {
         case 'circle':
             frame = new fabric.Circle({
-                radius: 100,
+                radius: 150,
                 left: 200,
                 top: 200,
                 fill: 'red',
-                opacity: 0.5,
+                opacity: 1,
                 originX: 'center',
                 originY: 'center',
                 metadata: {
@@ -157,12 +200,12 @@ function addFrame(type) {
 
         case 'triangle':
             frame = new fabric.Triangle({
-                width: 150,
-                height: 150,
+                width: 250,
+                height: 250,
                 left: 200,
                 top: 200,
                 fill: 'red',
-                opacity: 0.5,
+                opacity: 1,
                 originX: 'center',
                 originY: 'center',
                 metadata: {
@@ -175,7 +218,7 @@ function addFrame(type) {
             // Creating hexagon using polygon
             const hexPoints = [];
             const sides = 6;
-            const hexagonRadius = 80;
+            const hexagonRadius = 150;
             for (let i = 0; i < sides; i++) {
                 const angle = (i * 2 * Math.PI) / sides;
                 hexPoints.push({
@@ -187,7 +230,7 @@ function addFrame(type) {
                 left: 200,
                 top: 200,
                 fill: 'red',
-                opacity: 0.5,
+                opacity: 1,
                 originX: 'center',
                 originY: 'center',
                 metadata: {
@@ -199,8 +242,8 @@ function addFrame(type) {
         case 'star':
             // Creating 5-pointed star
             const starPoints = [];
-            const starOuterRadius = 80;
-            const starInnerRadius = 40;
+            const starOuterRadius = 200;
+            const starInnerRadius = 100;
             const spikes = 5;
             for (let i = 0; i < spikes * 2; i++) {
                 const starRadius = i % 2 === 0 ? starOuterRadius : starInnerRadius;
@@ -214,7 +257,7 @@ function addFrame(type) {
                 left: 200,
                 top: 200,
                 fill: 'red',
-                opacity: 0.5,
+                opacity: 1,
                 originX: 'center',
                 originY: 'center',
                 metadata: {
@@ -226,49 +269,31 @@ function addFrame(type) {
         case 'heart':
             // Creating heart using simple SVG path
             const heartPath = "M12,21.35l-1.45-1.32C5.4,15.36,2,12.28,2,8.5C2,5.42,4.42,3,7.5,3c1.74,0,3.41,0.81,4.5,2.09C13.09,3.81,14.76,3,16.5,3C19.58,3,22,5.42,22,8.5c0,3.78-3.4,6.86-8.55,11.54L12,21.35z";
-            try {
-                frame = new fabric.Path(heartPath, {
-                    left: 200,
-                    top: 200,
-                    fill: 'red',
-                    opacity: 0.5,
-                    originX: 'center',
-                    originY: 'center',
-                    scaleX: 4,
-                    scaleY: 4,
-                    metadata: {
-                        frameType: type
-                    }
-                });
-            } catch (error) {
-                console.error('Error creating heart:', error);
-                // Fallback to rectangle if error occurs
-                frame = new fabric.Rect({
-                    width: 150,
-                    height: 120,
-                    left: 200,
-                    top: 200,
-                    fill: 'red',
-                    opacity: 0.5,
-                    originX: 'center',
-                    originY: 'center',
-                    metadata: {
-                        frameType: 'rect'
-                    }
-                });
-            }
+            frame = new fabric.Path(heartPath, {
+                left: 200,
+                top: 200,
+                fill: '#dcf2ff',
+                opacity: 1,
+                originX: 'center',
+                originY: 'center',
+                scaleX: 4,
+                scaleY: 4,
+                metadata: {
+                    frameType: type
+                }
+            });
             break;
 
         case 'ellipse':
             frame = new fabric.Ellipse({
-                rx: 120,
-                ry: 80,
+                rx: 200,
+                ry: 130,
                 left: 200,
                 top: 200,
                 fill: 'red',
                 originX: 'center',
                 originY: 'center',
-                opacity: 0.5,
+                opacity: 1,
                 metadata: {
                     frameType: type
                 }
@@ -277,12 +302,12 @@ function addFrame(type) {
 
         default: // rect
             frame = new fabric.Rect({
-                width: 200,
-                height: 100,
+                width: 400,
+                height: 250,
                 left: 200,
                 top: 200,
                 fill: 'red',
-                opacity: 0.5,
+                opacity: 1,
                 originX: 'center',
                 originY: 'center',
                 metadata: {
@@ -290,6 +315,11 @@ function addFrame(type) {
                 }
             });
             break;
+    }   
+    
+    if(type !== 'heart') {
+        const pattern = createScaledPattern(frame);
+        frame.set('fill', pattern);
     }
 
     canvas.add(frame);
@@ -698,7 +728,7 @@ const exitEditMode = function (e) {
     meta.cropHeight = cropHeight * imgCurrent.scaleY;
     imgCurrent.data = meta;
 
-    shapeRef.set({ opacity: 0.5, fill: 'transparent', stroke: null });
+    shapeRef.set({ opacity: 1, fill: 'transparent', stroke: null });
     canvas.renderAll();
 
     // reconstruct original group
