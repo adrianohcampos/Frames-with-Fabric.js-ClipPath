@@ -1,101 +1,145 @@
 // canvas.toJSON(['metadata','data'])
-
 const canvas = new fabric.Canvas('canvas');
-
 fetch("data.json").then(response => response.json()).then(data => {
     canvas.loadFromJSON(data);
 });
 
-let activeFrame = null;
-let originalGroup = null;
-const frameEditState = {
-    isEditMode: false
-};
+const deleteObject = function (object = null) {
+    const activeObject = object || canvas.getActiveObject();
+    if (activeObject) {
+        canvas.remove(activeObject);
+        canvas.discardActiveObject();
+        canvas.renderAll();
+    }
+}
 
-// Create a temporary canvas to generate the checkerboard pattern
-const tempCanvas = document.createElement('canvas');
-tempCanvas.width = 20; // Pattern size (10x10 per square)
-tempCanvas.height = 20;
-const ctx = tempCanvas.getContext('2d');
-
-// Draw the checkerboard pattern
-ctx.fillStyle = '#fff';
-ctx.fillRect(0, 0, 10, 10);
-ctx.fillRect(10, 10, 10, 10);
-ctx.fillStyle = '#ccc';
-ctx.fillRect(10, 0, 10, 10);
-ctx.fillRect(0, 10, 10, 10);
-
-// Create the pattern with fabric.Pattern
-const checkerboardPattern = new fabric.Pattern({
-    source: tempCanvas,
-    repeat: 'repeat',
+// Allows deleting the selected object by pressing the Delete key
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Delete' || e.key === 'Del') {
+        deleteObject();
+    }
 });
 
+// frames logic
+const CONFIG = {
+    CHECKERBOARD_SIZE: 20,
+    CHECKERBOARD_COLOR_LIGHT: '#fff',
+    CHECKERBOARD_COLOR_DARK: '#eee',
+    BACKGROUND_IMAGE_SRC: "87e22a62965f141aa08e93699b0b3527.webp",
+    DEFAULT_FRAME_PROPS: {
+        left: 200,
+        top: 200,
+        fill: 'red',
+        opacity: 1,
+        originX: 'center',
+        originY: 'center',
+    }
+};
 
-const background = new Image();
-background.crossOrigin = 'anonymous'; // Para evitar problemas de CORS
-background.src = "87e22a62965f141aa08e93699b0b3527.webp";
 
-function createScaledPattern(object) {
-    const scaleX = 1 / object.scaleX;
-    const scaleY = 1 / object.scaleY;
+const frameEditState = {
+    isEditMode: false,
+    zIndex: null,
+    shapeRef: null,
+    currentGroup: null,
+    awaitImage: false
+};
 
-    // Frame dimensions
-    const frameW = object.width;
-    const frameH = object.height;
+const checkerboardPatternCreated = function() {
+    // Create a temporary canvas to generate the checkerboard pattern
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = CONFIG.CHECKERBOARD_SIZE; // Pattern size (10x10 per square)
+    tempCanvas.height = CONFIG.CHECKERBOARD_SIZE;
+    const ctx = tempCanvas.getContext('2d');
 
-    // Background image dimensions
-    const imgW = background.width;
-    const imgH = background.height;
+    // Draw the checkerboard pattern
+    ctx.fillStyle = CONFIG.CHECKERBOARD_COLOR_LIGHT;
+    ctx.fillRect(0, 0, 10, 10);
+    ctx.fillRect(10, 10, 10, 10);
+    ctx.fillStyle = CONFIG.CHECKERBOARD_COLOR_DARK;
+    ctx.fillRect(10, 0, 10, 10);
+    ctx.fillRect(0, 10, 10, 10);
 
-    // Calculate scale to cover the frame while maintaining aspect ratio
-    let scale = Math.max(frameW / imgW, frameH / imgH);
+    // Create the pattern with fabric.Pattern
+    const pattern = new fabric.Pattern({
+        source: tempCanvas,
+        repeat: 'repeat',
+    });
 
-    // Resized image size
-    const drawW = imgW * scale;
-    const drawH = imgH * scale;
+    return pattern;
+};
 
-    // Center the image on the temporary canvas
-    const offsetX = (frameW - drawW) / 2;
-    const offsetY = (frameH - drawH) / 2;
+const backgroundImageCreated = function() {
+    const i = new Image();
+    i.crossOrigin = 'anonymous'; // To avoid CORS issues
+    i.src = CONFIG.BACKGROUND_IMAGE_SRC;
+    return i;
+};
 
+
+const createScaledPattern = function(object) {
+    if (object.type === 'heart') { return object.fill; }
+
+    const bounds = getObjectDimensions(object);
+    const objectWidth = bounds.width;
+    const objectHeight = bounds.height;
     const tempCanvasBg = document.createElement('canvas');
     tempCanvasBg.width = background.width;
     tempCanvasBg.height = background.height;
-    const ctxbg = tempCanvasBg.getContext("2d");
+    const ctx = tempCanvasBg.getContext("2d");
+    ctx.drawImage(background, 0, 0, background.width, background.height);
 
-    // ctxbg.clearRect(0, 0, frameW, frameH);
-    ctxbg.drawImage(background, offsetX, offsetY, drawW, drawH);
+    const patternWidth = background.width;
+    const patternHeight = background.height;
+
+    let scale, offsetX, offsetY;
+
+    if (objectWidth && objectHeight) {
+        const scaleXToFit = objectWidth / patternWidth;
+        const scaleYToFit = objectHeight / patternHeight;
+        scale = Math.max(scaleXToFit, scaleYToFit);
+
+        const scaledPatternWidth = patternWidth * scale;
+        const scaledPatternHeight = patternHeight * scale;
+
+        offsetX = (objectWidth - scaledPatternWidth) / 2;
+        offsetY = (objectHeight - scaledPatternHeight) / 2;
+    } else {
+        scale = 1;
+        offsetX = 0;
+        offsetY = 0;
+    }
 
     return new fabric.Pattern({
         source: tempCanvasBg,
-        repeat: 'no-repeat', // Do not repeat, as it already covers the frame
-        patternTransform: [scaleX, 0, 0, scaleY, 0, 0]
+        repeat: 'no-repeat',
+        patternTransform: [scale, 0, 0, scale, 0, 0],
+        offsetX: offsetX,
+        offsetY: offsetY
     });
 }
 
 // Helper function to create clipPath based on frame type
-function createClipPath(frameType, width, height, frame = null) {
+const createClipPath = function(frameType, width, height, frame = null) {
+    const commonProps = {
+        left: 0,
+        top: 0,
+        originX: 'center',
+        originY: 'center'
+    };
     switch (frameType) {
         case 'circle':
             const circleRadius = Math.min(width, height) / 2;
             return new fabric.Circle({
                 radius: circleRadius,
-                left: 0,
-                top: 0,
-                originX: 'center',
-                originY: 'center'
+                ...commonProps
             });
 
         case 'triangle':
             return new fabric.Triangle({
                 width: width,
                 height: height,
-                left: 0,
-                top: 0,
-                originX: 'center',
-                originY: 'center'
+                ...commonProps
             });
 
         case 'hexagon':
@@ -111,10 +155,7 @@ function createClipPath(frameType, width, height, frame = null) {
                 });
             }
             return new fabric.Polygon(hexPoints, {
-                left: 0,
-                top: 0,
-                originX: 'center',
-                originY: 'center'
+                ...commonProps
             });
 
         case 'star':
@@ -132,86 +173,63 @@ function createClipPath(frameType, width, height, frame = null) {
                 });
             }
             return new fabric.Polygon(starPoints, {
-                left: 0,
-                top: 0,
-                originX: 'center',
-                originY: 'center'
+                ...commonProps
             });
 
         case 'heart':
             const heartPath = "M12,21.35l-1.45-1.32C5.4,15.36,2,12.28,2,8.5 C2,5.42,4.42,3,7.5,3c1.74,0,3.41,0.81,4.5,2.09C13.09,3.81,14.76,3,16.5,3 C19.58,3,22,5.42,22,8.5c0,3.78-3.4,6.86-8.55,11.54L12,21.35z";
             const path = new fabric.Path(heartPath); // Create a temporary path to get its natural dimensions
             return new fabric.Path(heartPath, {
-                left: 0,
-                top: 0,
-                originX: 'center',
-                originY: 'center',
                 // Scale the path to fit the target dimensions (width, height)
                 scaleX: width / path.width,
-                scaleY: height / path.height
+                scaleY: height / path.height,
+                ...commonProps
+                
             });
 
         case 'ellipse':
             return new fabric.Ellipse({
                 rx: width / 2,
                 ry: height / 2,
-                left: 0,
-                top: 0,
-                originX: 'center',
-                originY: 'center'
+                ...commonProps
+            });
+
+        case 'cloud':            
+            const cloudPath = 'M25,60 a20,20 0 0,1 0,-40 a20,20 0 0,1 35,-15 a25,25 0 0,1 45,0 a20,20 0 0,1 0,40 a20,20 0 0,1 -35,15 a25,25 0 0,1 -45,0 z';
+            const cloudPath_ = new fabric.Path(cloudPath);
+            return new fabric.Path(cloudPath, {
+                scaleX: width / cloudPath_.width,
+                scaleY: height / cloudPath_.height,
+                ...commonProps
             });
 
         default: // rect
             return new fabric.Rect({
                 width: width,
                 height: height,
-                left: 0,
-                top: 0,
-                originX: 'center',
-                originY: 'center'
+                ...commonProps
             });
     }
 }
 
 // Helper function to get frame dimensions
-function getFrameDimensions(frame) {
+const getObjectDimensions = function(frame) {
     const bounds = frame.getBoundingRect();
     return { width: bounds.width, height: bounds.height };
 }
 
-function addFrame(type) {
+
+const createFrameObject = function(type, initialProps) {
     let frame;
+    const commonProps = { ...CONFIG.DEFAULT_FRAME_PROPS, ...initialProps, metadata: { frameType: type } };
 
     switch (type) {
         case 'circle':
-            frame = new fabric.Circle({
-                radius: 150,
-                left: 200,
-                top: 200,
-                fill: 'red',
-                opacity: 1,
-                originX: 'center',
-                originY: 'center',
-                metadata: {
-                    frameType: type
-                }
-            });
+            frame = new fabric.Circle({ radius: 150, ...commonProps });
             break;
 
         case 'triangle':
-            frame = new fabric.Triangle({
-                width: 250,
-                height: 250,
-                left: 200,
-                top: 200,
-                fill: 'red',
-                opacity: 1,
-                originX: 'center',
-                originY: 'center',
-                metadata: {
-                    frameType: type
-                }
-            });
+            frame = new fabric.Triangle({ width: 250, height: 250, ...commonProps });
             break;
 
         case 'hexagon':
@@ -226,17 +244,7 @@ function addFrame(type) {
                     y: hexagonRadius * Math.sin(angle)
                 });
             }
-            frame = new fabric.Polygon(hexPoints, {
-                left: 200,
-                top: 200,
-                fill: 'red',
-                opacity: 1,
-                originX: 'center',
-                originY: 'center',
-                metadata: {
-                    frameType: type
-                }
-            });
+            frame = new fabric.Polygon(hexPoints, { ...commonProps });
             break;
 
         case 'star':
@@ -253,82 +261,53 @@ function addFrame(type) {
                     y: starRadius * Math.sin(angle - Math.PI / 2)
                 });
             }
-            frame = new fabric.Polygon(starPoints, {
-                left: 200,
-                top: 200,
-                fill: 'red',
-                opacity: 1,
-                originX: 'center',
-                originY: 'center',
-                metadata: {
-                    frameType: type
-                }
-            });
+            frame = new fabric.Polygon(starPoints, { ...commonProps });
             break;
 
         case 'heart':
             // Creating heart using simple SVG path
             const heartPath = "M12,21.35l-1.45-1.32C5.4,15.36,2,12.28,2,8.5C2,5.42,4.42,3,7.5,3c1.74,0,3.41,0.81,4.5,2.09C13.09,3.81,14.76,3,16.5,3C19.58,3,22,5.42,22,8.5c0,3.78-3.4,6.86-8.55,11.54L12,21.35z";
             frame = new fabric.Path(heartPath, {
-                left: 200,
-                top: 200,
                 fill: '#dcf2ff',
-                opacity: 1,
-                originX: 'center',
-                originY: 'center',
                 scaleX: 4,
                 scaleY: 4,
-                metadata: {
-                    frameType: type
-                }
+                ...commonProps
             });
             break;
 
         case 'ellipse':
-            frame = new fabric.Ellipse({
-                rx: 200,
-                ry: 130,
-                left: 200,
-                top: 200,
-                fill: 'red',
-                originX: 'center',
-                originY: 'center',
-                opacity: 1,
-                metadata: {
-                    frameType: type
-                }
+            frame = new fabric.Ellipse({ rx: 200, ry: 130, ...commonProps });
+            break;
+
+        case 'cloud':            
+            const cloudPath = 'M25,60 a20,20 0 0,1 0,-40 a20,20 0 0,1 35,-15 a25,25 0 0,1 45,0 a20,20 0 0,1 0,40 a20,20 0 0,1 -35,15 a25,25 0 0,1 -45,0 z';
+            frame = new fabric.Path(cloudPath, {
+                fill: '#dcf2ff',
+                scaleX: 4,
+                scaleY: 4,
+                ...commonProps
             });
             break;
 
         default: // rect
-            frame = new fabric.Rect({
-                width: 400,
-                height: 250,
-                left: 200,
-                top: 200,
-                fill: 'red',
-                opacity: 1,
-                originX: 'center',
-                originY: 'center',
-                metadata: {
-                    frameType: type
-                }
-            });
+            frame = new fabric.Rect({ width: 400, height: 250, ...commonProps });
             break;
-    }   
-    
-    if(type !== 'heart') {
-        const pattern = createScaledPattern(frame);
-        frame.set('fill', pattern);
     }
 
+    return frame;
+}
+
+const addFrame = function(type) {
+    const frame = createFrameObject(type);
+    const pattern = createScaledPattern(frame);
+    frame.set("fill", pattern);
     canvas.add(frame);
     canvas.setActiveObject(frame);
-    activeFrame = frame;
+    frameEditState.activeFrame = frame;
     canvas.renderAll();
 }
 
-function uploadImage(event) {
+const uploadImage = function(event) {
     const file = event.target.files[0];
     const reader = new FileReader();
     reader.onload = function (e) {
@@ -337,22 +316,22 @@ function uploadImage(event) {
     reader.readAsDataURL(file);
 }
 
-function addImage(imageUrl) {
-    if (!activeFrame) {
+const addImage = function(imageUrl) {
+    if (!frameEditState.activeFrame) {
         alert('Please select or add a frame first!');
         return;
     }
 
     fabric.Image.fromURL(imageUrl, function (img) {
 
-        let activeFrameAngle = (typeof activeFrame.angle === 'number') ? activeFrame.angle : 0;
-        activeFrame.set({ angle: 0 });
+        frameEditState.activeFrameAngle = (typeof frameEditState.activeFrame.angle === 'number') ? frameEditState.activeFrame.angle : 0;
+        frameEditState.activeFrame.set({ angle: 0 });
 
         canvas.renderAll();
 
         img.set({
-            left: activeFrame.left,
-            top: activeFrame.top,
+            left: frameEditState.activeFrame.left,
+            top: frameEditState.activeFrame.top,
             originX: 'center',
             originY: 'center',
             width: img.width,
@@ -362,7 +341,7 @@ function addImage(imageUrl) {
         });
 
         // Uniform scale (cover) and clipPath in non-scaled image coordinates
-        const dimensions = getFrameDimensions(activeFrame);
+        const dimensions = getObjectDimensions(frameEditState.activeFrame);
         const targetWidth = dimensions.width;
         const targetHeight = dimensions.height;
 
@@ -389,10 +368,10 @@ function addImage(imageUrl) {
 
         // Create clipPath based on frame type
         img.clipPath = createClipPath(
-            activeFrame.metadata.frameType,
+            frameEditState.activeFrame.metadata.frameType,
             cropWidth,
             cropHeight,
-            activeFrame
+            frameEditState.activeFrame
         );
 
         canvas.renderAll();
@@ -405,17 +384,17 @@ function addImage(imageUrl) {
             targetHeight: targetHeight,
             naturalWidth: naturalWidth,
             naturalHeight: naturalHeight,
-            frameType: activeFrame.metadata ? activeFrame.metadata.frameType : activeFrame.type,
+            frameType: frameEditState.activeFrame.metadata ? frameEditState.activeFrame.metadata.frameType : frameEditState.activeFrame.type,
             cropX: initCropX,
             cropY: initCropY,
             cropWidth: cropWidth,
             cropHeight: cropHeight,
         };
 
-        activeFrame.strokeWidth = 0;
+        frameEditState.activeFrame.strokeWidth = 0;
 
         // Store frame reference for edit mode toggle
-        const shapeRef = activeFrame;
+        const shapeRef = frameEditState.activeFrame;
 
         shapeRef.set({
             fill: 'transparent',
@@ -423,54 +402,54 @@ function addImage(imageUrl) {
 
         // Group frame and image
         const group = new fabric.Group([shapeRef, img], {
-            left: activeFrame.left,
-            top: activeFrame.top,
+            left: frameEditState.activeFrame.left,
+            top: frameEditState.activeFrame.top,
             originX: 'center',
             originY: 'center',
-            angle: activeFrameAngle || 0,
+            angle: frameEditState.activeFrameAngle || 0,
             metadata: { isFrameGroup: true }
         });
         group.data = { shapeRef: shapeRef };
 
-        canvas.remove(activeFrame);
+        canvas.remove(frameEditState.activeFrame);
         canvas.add(group);
 
         canvas.setActiveObject(group);
-        activeFrame = null;
+        frameEditState.activeFrame = null;
         canvas.renderAll();
 
-        originalGroup = group; // store original group reference
+        frameEditState.currentGroup = group; // store original group reference
 
 
     }, { crossOrigin: 'anonymous' });
-
 }
 
 const enterEditMode = function (e) {
 
     frameEditState.isEditMode = true;
-    let ActiveObject = e.target;
-    originalGroup = e.target;
+    canvas.selection = false;
+    const activeObject = e.target;
+    frameEditState.currentGroup = activeObject;
 
     // get the index of the active object
-    frameEditState.zIndex = canvas.getObjects().indexOf(ActiveObject);
+    frameEditState.zIndex = canvas.getObjects().indexOf(activeObject);
 
     // lock all except the active object
     lockAllExcept(e.target)
 
     // configure cropping mode as in crop.html
-    canvas.remove(originalGroup);
+    canvas.remove(frameEditState.currentGroup);
 
-    const shapeRef = ActiveObject._objects.find(obj => obj.type !== 'image');
-    const imgCurrent = ActiveObject._objects.find(obj => obj.type === 'image');
+    const shapeRef = activeObject._objects.find(obj => obj.type !== 'image');
+    const imgCurrent = activeObject._objects.find(obj => obj.type === 'image');
 
     imgCurrent.on('mousedblclick', exitEditMode);
 
     frameEditState.shapeRef = shapeRef;
 
-    const groupScaleX = ActiveObject.scaleX;
-    const groupScaleY = ActiveObject.scaleY;
-    const groupAngle = ActiveObject.angle || 0;
+    const groupScaleX = activeObject.scaleX;
+    const groupScaleY = activeObject.scaleY;
+    const groupAngle = activeObject.angle || 0;
 
     // create checkerboard rect
     const checkerboardRect = new fabric.Rect({
@@ -483,11 +462,13 @@ const enterEditMode = function (e) {
         evented: true,
         originX: 'left',
         originY: 'top',
-        id: 'checkerboardRect'
+        id: 'checkerboardRect',
+        opacity: 0.5,
     });
 
     canvas.preserveObjectStacking = true;
 
+    canvas.add(checkerboardRect);
     canvas.add(imgCurrent);
     canvas.add(shapeRef);
 
@@ -530,8 +511,8 @@ const enterEditMode = function (e) {
 
         // Restore the original position calculation, which user confirmed was correct,
         // but apply the correct angle from the now-correctly-rotated main image.
-        let imgTLx = ActiveObject.left - (imgCurrent.width * imgCurrent.scaleX * groupScaleX) / 2;
-        let imgTLy = ActiveObject.top - (imgCurrent.height * imgCurrent.scaleY * groupScaleY) / 2;
+        let imgTLx = activeObject.left - (imgCurrent.width * imgCurrent.scaleX * groupScaleX) / 2;
+        let imgTLy = activeObject.top - (imgCurrent.height * imgCurrent.scaleY * groupScaleY) / 2;
 
         backdrop.set({
             id: imgCurrent.backdropId,
@@ -558,11 +539,10 @@ const enterEditMode = function (e) {
             bl: false, br: false, tl: false, tr: false,
         });
         canvas.add(backdrop);
-        // backdrop.setPositionByOrigin(ActiveObject.getCenterPoint(), 'center', 'center');
+        // backdrop.setPositionByOrigin(activeObject.getCenterPoint(), 'center', 'center');
         // backdrop.setCoords();
         canvas.renderAll();
         canvas.sendBackwards(backdrop);
-        canvas.sendBackwards(checkerboardRect);
         canvas.bringForward(imgCurrent);
         canvas.bringForward(shapeRef);
     }, { crossOrigin: 'anonymous' });
@@ -572,7 +552,7 @@ const enterEditMode = function (e) {
         const image = e.transform.target;
         if (image.isCropping) {
             image.isScaling = true;
-            const backdrop = canvas.getObjects().find(obj => obj.id === image.backdropId);
+            const backdrop = getById(image.backdropId);
             if (backdrop) {
                 // don't change scaling
                 image.scaleX = backdrop.scaleX;
@@ -601,7 +581,7 @@ const enterEditMode = function (e) {
         image.isMouseDown = true;
         image.mouseDownX = e.pointer.x;
         image.mouseDownY = e.pointer.y;
-        const backdrop = canvas.getObjects().find(obj => obj.id === image.backdropId);
+        const backdrop = getById(image.backdropId);
         if (backdrop) {
             backdrop._left = backdrop.left;
             backdrop._top = backdrop.top;
@@ -610,22 +590,36 @@ const enterEditMode = function (e) {
 
     const handleMouseMove = function (e) {
         const image = e.target;
+        const backdrop = getById(image.backdropId);
 
-        const backdrop = canvas.getObjects().find(obj => obj.id === image.backdropId);
         if (image.isMouseDown && backdrop && !image.isScaling) {
+
+            const group = image.group;
+            const groupAngle = group ? group.angle : 0;
+            const groupScaleX = group ? group.scaleX : 1;
+            const groupScaleY = group ? group.scaleY : 1;
+            const angleRad = fabric.util.degreesToRadians(groupAngle);
 
             const diffX = e.pointer.x - image.mouseDownX;
             const diffY = e.pointer.y - image.mouseDownY;
 
-            // backdrop movement
-            backdrop.left = backdrop._left + diffX;
-            backdrop.top = backdrop._top + diffY;
+            const cosA = Math.cos(angleRad);
+            const sinA = Math.sin(angleRad);
+            const rotatedDiffX = diffX * cosA + diffY * sinA;
+            const rotatedDiffY = diffY * cosA - diffX * sinA;
 
-            // backdrop limits (use image top-left coordinates)
-            const imageTLx = ActiveObject.left - (image.width * image.scaleX * groupScaleX) / 2;
-            const imageTLy = ActiveObject.top - (image.height * image.scaleY * groupScaleY) / 2;
+            backdrop.left = backdrop._left + rotatedDiffX;
+            backdrop.top = backdrop._top + rotatedDiffY;
+
+            const groupCenter = group
+                ? { x: group.left, y: group.top }
+                : { x: image.left, y: image.top };
+
             const imageW = image.width * image.scaleX * groupScaleX;
             const imageH = image.height * image.scaleY * groupScaleY;
+            const imageTLx = groupCenter.x - imageW / 2;
+            const imageTLy = groupCenter.y - imageH / 2;
+
             const backdropW = backdrop.width * backdrop.scaleX;
             const backdropH = backdrop.height * backdrop.scaleY;
 
@@ -634,10 +628,22 @@ const enterEditMode = function (e) {
             if (backdrop.left + backdropW < imageTLx + imageW) backdrop.left = imageTLx + imageW - backdropW;
             if (backdrop.top + backdropH < imageTLy + imageH) backdrop.top = imageTLy + imageH - backdropH;
 
+            const deltaX = imageTLx - backdrop.left;
+            const deltaY = imageTLy - backdrop.top;
 
-            // crop changes (consider image has center origin)
-            image.cropX = (imageTLx - backdrop.left) / (image.scaleX * groupScaleX);
-            image.cropY = (imageTLy - backdrop.top) / (image.scaleY * groupScaleY);
+            image.cropX = (deltaX * cosA - deltaY * sinA) / (image.scaleX * groupScaleX);
+            image.cropY = (deltaY * cosA + deltaX * sinA) / (image.scaleY * groupScaleY);
+
+            // backdrop.setPositionByOrigin(image.group.getCenterPoint(), 'center', 'center');
+            // backdrop.setCoords();
+            console.group('image');
+            console.log(image.cropX, image.cropY, image.width, image.height, image.scaleX, image.scaleY);
+            console.groupEnd();
+
+            console.group('backdrop');
+            console.log(backdrop.top, backdrop.left);
+            console.groupEnd();
+            
             canvas.renderAll();
         }
     };
@@ -646,7 +652,7 @@ const enterEditMode = function (e) {
         const image = e.target;
         image.isMouseDown = false;
         image.isScaling = false;
-        const backdrop = canvas.getObjects().find(obj => obj.id === image.backdropId);
+        const backdrop = getById(image.backdropId);
         if (backdrop) {
             backdrop._left = backdrop.left;
             backdrop._top = backdrop.top;
@@ -667,16 +673,15 @@ const enterEditMode = function (e) {
     })
     canvas.renderAll();
 };
+
 const exitEditMode = function (e) {
     e.target.off('mousedblclick');
-
+    canvas.selection = true;
     if (!frameEditState.isEditMode) return;
 
     frameEditState.isEditMode = false;
 
     let imgCurrent = e.target;
-
-    canvas.bringForward(imgCurrent);
 
     let shapeRef = frameEditState.shapeRef;
 
@@ -691,7 +696,6 @@ const exitEditMode = function (e) {
     imgCurrent.off('mousedown');
     imgCurrent.off('mousemove');
     imgCurrent.off('mouseup');
-    imgCurrent.off('deselected');
 
     // disable crop
     imgCurrent.isCropping = false;
@@ -732,43 +736,46 @@ const exitEditMode = function (e) {
     canvas.renderAll();
 
     // reconstruct original group
-    originalGroup = new fabric.Group([shapeRef, imgCurrent], {
-        left: originalGroup.left,
-        top: originalGroup.top,
-        scaleX: originalGroup.scaleX,
-        scaleY: originalGroup.scaleY,
-        angle: originalGroup.angle,
+    const newGroup = new fabric.Group([shapeRef, imgCurrent], {
+        left: frameEditState.currentGroup.left,
+        top: frameEditState.currentGroup.top,
+        scaleX: frameEditState.currentGroup.scaleX,
+        scaleY: frameEditState.currentGroup.scaleY,
+        angle: frameEditState.currentGroup.angle,
         originX: 'center',
         originY: 'center',
         metadata: { isFrameGroup: true }
     });
 
-    originalGroup.data = { shapeRef: shapeRef };
+    newGroup.data = { shapeRef: shapeRef };
 
     // Move the reconstructed group to the original zIndex position
     if (typeof frameEditState.zIndex === 'number') {
-        console.log(frameEditState.zIndex);
         // Remove individual objects first
         canvas.remove(shapeRef);
         canvas.remove(imgCurrent);
         // Add the group at the correct position
-        canvas.insertAt(originalGroup, frameEditState.zIndex, false);
+        canvas.insertAt(newGroup, frameEditState.zIndex, false);
     } else {
         // Fallback: remove individual objects and add the group
         canvas.remove(shapeRef);
         canvas.remove(imgCurrent);
-        canvas.add(originalGroup);
+        canvas.add(newGroup);
     }
 
     // unlock all objects
     unlockAll();
     canvas.preserveObjectStacking = false;
-    canvas.setActiveObject(originalGroup);
+    canvas.setActiveObject(newGroup);
     canvas.renderAll();
+
+    frameEditState.zIndex = null;
+    frameEditState.shapeRef = null;
 
 };
 
-function lockAllExcept(activeObject) {
+// lock all objects except the active one
+const lockAllExcept = function(activeObject) {
     // Unlock all objects first
     unlockAll();
 
@@ -778,26 +785,25 @@ function lockAllExcept(activeObject) {
     // Lock all other objects
     canvas.getObjects().forEach(obj => {
         if (obj !== activeObject) {
-            // Store current values if they don't exist
-            if (obj.originalSelectable === undefined) {
-                obj.originalSelectable = obj.selectable;
-            }
-            if (obj.originalEvented === undefined) {
-                obj.originalEvented = obj.evented;
-            }
 
-            // Lock temporarily
-            obj.set({
-                selectable: false,
-                evented: false
-            });
+            if (obj.selectable || obj.evented) {
+                // Store current values if they don't exist                
+                obj.originalSelectable = obj.selectable;
+                obj.originalEvented = obj.evented;
+                // Lock temporarily
+                obj.set({
+                    selectable: false,
+                    evented: false
+                });
+            }
         }
     });
 
     canvas.renderAll();
 }
 
-function unlockAll() {
+// unlock all objects
+const unlockAll = function() {
     canvas.getObjects().forEach(obj => {
         // Restore original values if they exist
         if (obj.originalSelectable !== undefined && obj.originalEvented !== undefined) {
@@ -805,23 +811,30 @@ function unlockAll() {
                 selectable: obj.originalSelectable,
                 evented: obj.originalEvented
             });
+            // Clear original properties to avoid side effects in future operations
+            delete obj.originalSelectable;
+            delete obj.originalEvented;
         }
         // If we don't have original values, leave the object as is
     });
 }
 
-canvas.on('selection:created', function (e) {
-    activeFrame = null;
-    if (e.selected[0].metadata && e.selected[0].metadata.frameType) {
-        activeFrame = e.selected[0];
-    }
-});
+// update active selected object
+const updateActiveSelectedObject = function (e) {
+    if (e.selected && e.selected[0] && e.selected[0].type === 'image' && frameEditState.awaitImage && frameEditState.activeFrame) {
+        addImage(e.selected[0].src);
+    } else {
+        frameEditState.awaitImage = false;
+        frameEditState.activeFrame = null;
+        if (e.selected && e.selected[0] && e.selected[0].metadata && e.selected[0].metadata.frameType) {
+            frameEditState.activeFrame = e.selected[0];
+            frameEditState.awaitImage = true;
+        }
+    } 
+}
 
-canvas.on('selection:cleared', function () {
-    activeFrame = null;
-});
-
-canvas.on('mouse:dblclick', function (options) {
+// double click on frame group
+const mouseDblclick = function (options) {
     if (options.target) {
         if (options.target.metadata && options.target.metadata.isFrameGroup) {
             if (!frameEditState.isEditMode) {
@@ -829,21 +842,54 @@ canvas.on('mouse:dblclick', function (options) {
             }
         }
     }
-});
+}
 
-// Allows deleting the selected object by pressing the Delete key
-document.addEventListener('keydown', function (e) {
-    if (e.key === 'Delete' || e.key === 'Del') {
-        const activeObject = canvas.getActiveObject();
-        if (activeObject) {
-            // if in edit mode, exit edit mode before deleting
-            if (frameEditState && frameEditState.isEditMode) {
-                exitEditMode();
-            }
-            canvas.remove(activeObject);
-            canvas.discardActiveObject();
-            canvas.renderAll();
-            activeFrame = null;
+// delete frame group or image
+const deleteAction = function (e) {
+    if (e.selected && e.selected[0] && e.selected[0].metadata && e.selected[0].metadata.isFrameGroup) {
+        frameEditState.activeFrame = null;
+    }
+    if (e.target && e.target.data && e.target.data.frameType) {
+        if (frameEditState.isEditMode) {
+            disassembleGroup(e);
         }
     }
-});
+}
+
+// disassemble frame group
+const disassembleGroup = function (e) {
+    exitEditMode(e);
+    const group = canvas.getActiveObject();
+    const objects = group.getObjects();
+    group.destroy();
+    canvas.remove(group);
+    objects.forEach(function (obj) {
+        if (obj.type !== 'image') {
+            const pattern = createScaledPattern(obj);
+            obj.set({
+                selectable: true,
+                evented: true,
+                hasControls: true,
+                hasBorders: true,
+                fill: pattern,
+            });
+            canvas.add(obj);
+        }
+    })
+    canvas.renderAll();
+}
+
+
+const getById = (id) => {
+    let objects = canvas.getObjects();
+    for (let i = 0; i < objects.length; i++) if (objects[i].id == id) return objects[i]
+}
+
+const checkerboardPattern = checkerboardPatternCreated();
+const background = backgroundImageCreated();
+
+canvas.on('selection:created', updateActiveSelectedObject);
+canvas.on('selection:updated', updateActiveSelectedObject);
+canvas.on('selection:cleared', updateActiveSelectedObject);
+canvas.on('mouse:dblclick', mouseDblclick);
+canvas.on('object:removed', deleteAction);
