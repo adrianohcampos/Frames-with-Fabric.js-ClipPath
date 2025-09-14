@@ -1006,6 +1006,45 @@
                     "filters": []
                 }
             ]
+        },
+        {
+            "type": "image",
+            "version": "5.3.0",
+            "originX": "center",
+            "originY": "center",
+            "left": 466.97,
+            "top": 290.41,
+            "width": 600,
+            "height": 667,
+            "fill": "rgb(0, 0, 0)",
+            "stroke": null,
+            "strokeWidth": 0,
+            "strokeDashArray": [],
+            "strokeLineCap": "butt",
+            "strokeDashOffset": 0,
+            "strokeLineJoin": "circle",
+            "strokeUniform": true,
+            "strokeMiterLimit": 4,
+            "scaleX": 0.44,
+            "scaleY": 0.44,
+            "angle": 0,
+            "flipX": false,
+            "flipY": false,
+            "opacity": 1,
+            "shadow": null,
+            "visible": true,
+            "backgroundColor": "",
+            "fillRule": "nonzero",
+            "paintFirst": "fill",
+            "globalCompositeOperation": "source-over",
+            "skewX": 0,
+            "skewY": 0,
+            "cropX": 0,
+            "cropY": 0,
+            "animation": null,
+            "src": "http://127.0.0.1:5502/screenshots/astronaut.png",
+            "crossOrigin": "anonymous",
+            "filters": []
         }
     ]
 }
