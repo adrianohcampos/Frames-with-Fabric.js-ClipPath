@@ -1,71 +1,235 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 
 <head>
     <meta charset="UTF-8">
-    <title>Frame Editor</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor de Molduras</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <!-- Fabric.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    <!-- Custom CSS -->
     <link rel="stylesheet" href="styles.css">
 </head>
 
-<body>
-    <header style="text-align: center; margin-bottom: 20px;">
-        <h1 style="margin: 0 0 10px 0;">🖼️ Frames with Fabric.js ClipPath</h1>
-        <p style=" margin: 0; font-size: 14px;">Demonstration of implementing the frames feature in Fabric.js using ClipPath</p>
+<body class="bg-dark">
+    <!-- Header -->
+    <header class="bg-primary text-white py-2 mb-4">
+        <div class="container-fluid">
+            <div class="d-flex align-items-center">
+                <h1 class="h3 me-3">
+                    <i class="bi bi-image me-2"></i>
+                    Editor de Molduras
+                </h1>
+                <p class="mb-0 opacity-75">Demonstração da implementação de molduras no Fabric.js usando ClipPath</p>
+            </div>
+        </div>
     </header>
 
-    <div class="main-container">
-        <!-- Controls Panel -->
-        <div class="controls-panel">
+    <div class="container-fluid">
+        <div class="row g-3">
+            <!-- Sidebar Controls -->
+            <div class="col-lg-3 col-md-4">
+                <div class="card h-100 shadow">
+                    <div class="card-header bg-light">
+                        <h6 class="card-title mb-0">
+                            <i class="bi bi-gear me-2"></i>
+                            Controles
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <!-- Dica -->
+                        <div class="alert alert-info alert-sm mb-4 small">
+                            <button type="button" class="btn-close float-end" data-bs-dismiss="alert"
+                                aria-label="Fechar"></button>
+                            <i class="bi bi-lightbulb me-2"></i>
+                            <strong>Dica:</strong>
+                            <ul class="mb-0 mt-2 small">
+                                <li>Clique em uma moldura para adicioná-la</li>
+                                <li>Clique em "Adicionar Imagem" para inserir uma foto</li>
+                                <li>Clique duplo na imagem para editá-la</li>
+                            </ul>
+                        </div>
 
-            <div
-                style="margin-bottom: 20px; padding: 10px; background-color: #f8f9fa; border-radius: 4px; font-size: 12px; color: #666;">
-                <strong>💡 Tip:</strong><br>
-                1. Click on a frame to add it<br>
-                2. Click "Add Image" to insert a photo<br>
-                3. Double-click on the image to edit it
+                        <!-- Molduras -->
+                        <div class="mb-4">
+                            <h6 class="text-primary mb-3">
+                                <i class="bi bi-diamond me-2"></i>
+                                Molduras
+                            </h6>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <button class="btn btn-outline-primary btn-sm w-100"
+                                        onclick="frameEditor.addFrame('circle')">
+                                        <i class="bi bi-circle me-1"></i>
+                                        Círculo
+                                    </button>
+                                </div>
+                                <div class="col-6">
+                                    <button class="btn btn-outline-primary btn-sm w-100"
+                                        onclick="frameEditor.addFrame('rect')">
+                                        <i class="bi bi-square me-1"></i>
+                                        Retângulo
+                                    </button>
+                                </div>
+                                <div class="col-6">
+                                    <button class="btn btn-outline-primary btn-sm w-100"
+                                        onclick="frameEditor.addFrame('ellipse')">
+                                        <i class="bi bi-egg me-1"></i>
+                                        Elipse
+                                    </button>
+                                </div>
+                                <div class="col-6">
+                                    <button class="btn btn-outline-primary btn-sm w-100"
+                                        onclick="frameEditor.addFrame('triangle')">
+                                        <i class="bi bi-triangle me-1"></i>
+                                        Triângulo
+                                    </button>
+                                </div>
+                                <div class="col-6">
+                                    <button class="btn btn-outline-primary btn-sm w-100"
+                                        onclick="frameEditor.addFrame('hexagon')">
+                                        <i class="bi bi-hexagon me-1"></i>
+                                        Hexágono
+                                    </button>
+                                </div>
+                                <div class="col-6">
+                                    <button class="btn btn-outline-primary btn-sm w-100"
+                                        onclick="frameEditor.addFrame('star')">
+                                        <i class="bi bi-star me-1"></i>
+                                        Estrela
+                                    </button>
+                                </div>
+                                <div class="col-6">
+                                    <button class="btn btn-outline-primary btn-sm w-100"
+                                        onclick="frameEditor.addFrame('heart')">
+                                        <i class="bi bi-heart me-1"></i>
+                                        Coração
+                                    </button>
+                                </div>
+                                <div class="col-6">
+                                    <button class="btn btn-outline-primary btn-sm w-100"
+                                        onclick="frameEditor.addFrame('cloud')">
+                                        <i class="bi bi-cloud me-1"></i>
+                                        Nuvem
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Imagens -->
+                        <div class="mb-4">
+                            <h6 class="text-success mb-3">
+                                <i class="bi bi-image me-2"></i>
+                                Imagens
+                            </h6>
+
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <button class="btn btn-success btn-sm w-100"
+                                        onclick="frameEditor.addImage('https://upload.wikimedia.org/wikipedia/commons/4/42/Science_Fiction_Treffen%2C_Speyer._2019-09-29_14-28-24.jpg')">
+                                        <i class="bi bi-camera me-1"></i>
+                                        Img Vertical
+                                    </button>
+                                </div>
+                                <div class="col-6">
+                                    <button class="btn btn-success btn-sm w-100"
+                                        onclick="frameEditor.addImage('https://upload.wikimedia.org/wikipedia/commons/f/f0/Chewbacca_%26_friends.jpg')">
+                                        <i class="bi bi-camera me-1"></i>
+                                        Img Horizontal
+                                    </button>
+                                </div>
+                                <div class="col-12">
+                                    <label for="upload" class="btn btn-outline-success btn-sm w-100">
+                                        <i class="bi bi-upload me-1"></i>
+                                        Upload de Imagem
+                                    </label>
+                                    <input type="file" id="upload" class="d-none" accept="image/*"
+                                        onchange="frameEditor.uploadImage(event)">
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <!-- Ações -->
+                        <div class="mb-4">
+                            <h6 class="text-warning mb-3">
+                                <i class="bi bi-tools me-2"></i>
+                                Ações
+                            </h6>
+
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <button class="btn btn-info btn-sm w-100" onclick="frameEditor.enterEditMode()">
+                                        <i class="bi bi-pencil me-1"></i>
+                                        Editar
+                                    </button>
+                                </div>
+                                <div class="col-6">
+                                    <button class="btn btn-secondary btn-sm w-100" onclick="frameEditor.exitEditMode()">
+                                        <i class="bi bi-stop me-1"></i>
+                                        Sair da Edição
+                                    </button>
+                                </div>
+                                <div class="col-6">
+                                    <button class="btn btn-warning btn-sm w-100" onclick="frameEditor.disassembleGroup()">
+                                        <i class="bi bi-puzzle me-1"></i>
+                                        Desmontar
+                                    </button>
+                                </div>
+                                <div class="col-6">
+                                    <button class="btn btn-danger btn-sm w-100" onclick="deleteObject()">
+                                        <i class="bi bi-trash me-1"></i>
+                                        Deletar
+                                    </button>
+                                </div>
+                                <div class="col-12">
+                                    <div class="btn-group  w-100" role="group">
+                                        <button class="btn btn-outline-success btn-sm"
+                                            onclick="frameEditor.enableToSelectImage()">
+                                            <i class="bi bi-check-circle me-1"></i>
+                                            Habilitar Seleção
+                                        </button>
+                                        <button class="btn btn-outline-danger btn-sm"
+                                            onclick="frameEditor.disableToSelectImage()">
+                                            <i class="bi bi-x-circle me-1"></i>
+                                            Desabilitar Seleção
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <h3>Basic Frames</h3>
-            <div class="button-group">
-                <button onclick="addFrame('circle')">🔴 Circle</button>
-                <button onclick="addFrame('rect')">🟥 Rectangle</button>
-                <button onclick="addFrame('ellipse')">🔵 Ellipse</button>
+            <!-- Canvas Area -->
+            <div class="col-lg-9 col-md-8">
+                <div class="card shadow">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <h6 class="card-title mb-0">
+                            <i class="bi bi-palette me-2"></i>
+                            Área de Edição
+                        </h6>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="canvas-container d-flex justify-content-center align-items-center p-3">
+                            <canvas id="canvas" width="854" height="480" class="border rounded shadow"></canvas>
+                        </div>
+                    </div>
+                </div>
             </div>
-
-            <h3>Geometric Frames</h3>
-            <div class="button-group">
-                <button onclick="addFrame('triangle')">🔺 Triangle</button>
-                <button onclick="addFrame('hexagon')">⬢ Hexagon</button>
-            </div>
-
-            <h3>Special Frames</h3>
-            <div class="button-group">
-                <button onclick="addFrame('star')">⭐ Star</button>
-                <button onclick="addFrame('heart')">❤️ Heart</button>
-                <button onclick="addFrame('cloud')">☁️ Cloud</button>
-            </div>
-
-            <h3>Image</h3>
-            <div class="button-group">
-                
-                <button class="image-button"
-                    onclick="addImage('https://upload.wikimedia.org/wikipedia/commons/4/42/Science_Fiction_Treffen%2C_Speyer._2019-09-29_14-28-24.jpg')">📷
-                    Add Vertical Image</button>
-                <button class="image-button"
-                    onclick="addImage('https://upload.wikimedia.org/wikipedia/commons/f/f0/Chewbacca_%26_friends.jpg')">📷
-                    Add Horizontal Image</button>
-                <input type="file" id="upload" class="image-input" accept="image/*" onchange="uploadImage(event)">
-            </div>
-
-            
-        </div>
-
-        <!-- Canvas Panel -->
-        <div class="canvas-panel">
-            <canvas id="canvas" width="800" height="600"></canvas>
         </div>
     </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Custom Scripts -->
+    <script src="FrameEditor.js"></script>
     <script src="script.js"></script>
 </body>
 
